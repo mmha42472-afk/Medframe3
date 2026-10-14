@@ -1,0 +1,6 @@
+{
+  "name": "MedFrame Studio | منصة بناء وإدارة مواقع الأطباء",
+  "description": "منصة سحابية متطورة للأطباء والمراكز الطبية لبناء وتخصيص مواقع إلكترونية احترافية وإدارة الملفات الطبية مع دعم كامل للغة العربية ونظام أمان متقدم.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

@@ -1,0 +1,170 @@
+{
+  "entities": {
+    "Doctor": {
+      "title": "Doctor",
+      "description": "Comprehensive doctor profile and public website configuration",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the doctor"
+        },
+        "slug": {
+          "type": "string",
+          "description": "URL-friendly slug for the doctor's public website"
+        },
+        "name": {
+          "type": "string",
+          "description": "Doctor full name in Arabic"
+        },
+        "nameEn": {
+          "type": "string",
+          "description": "Doctor full name in English"
+        },
+        "title": {
+          "type": "string",
+          "description": "Professional title (e.g., Consultant Cardiologist)"
+        },
+        "specialty": {
+          "type": "string",
+          "description": "Primary medical specialty"
+        },
+        "subspecialties": {
+          "type": "array",
+          "description": "List of subspecialties"
+        },
+        "licenseNumber": {
+          "type": "string",
+          "description": "Medical license registration number"
+        },
+        "experienceYears": {
+          "type": "number",
+          "description": "Years of clinical experience"
+        },
+        "rating": {
+          "type": "number",
+          "description": "Average patient rating"
+        },
+        "reviewCount": {
+          "type": "number",
+          "description": "Total number of patient reviews"
+        },
+        "avatarUrl": {
+          "type": "string",
+          "description": "URL or data representation for doctor's portrait"
+        },
+        "coverUrl": {
+          "type": "string",
+          "description": "URL for website hero cover image"
+        },
+        "bio": {
+          "type": "string",
+          "description": "Doctor's biography and personal medical mission"
+        },
+        "statement": {
+          "type": "string",
+          "description": "Doctor's motto or statement to patients"
+        },
+        "themeColor": {
+          "type": "string",
+          "description": "Color theme preset: teal, navy, emerald, rose, or plum"
+        },
+        "status": {
+          "type": "string",
+          "description": "Publication status: draft, published, or archived"
+        },
+        "qualifications": {
+          "type": "array",
+          "description": "Medical degrees, fellowships, and board certifications"
+        },
+        "experience": {
+          "type": "array",
+          "description": "Career history, hospital appointments, and positions"
+        },
+        "clinic": {
+          "type": "object",
+          "description": "Clinic name, address, working hours, and consultation details"
+        },
+        "services": {
+          "type": "array",
+          "description": "Medical services offered, duration, price, and insurance coverage"
+        },
+        "articles": {
+          "type": "array",
+          "description": "Health education articles and publications by the doctor"
+        },
+        "faqs": {
+          "type": "array",
+          "description": "Frequently asked questions and patient guidance"
+        },
+        "testimonials": {
+          "type": "array",
+          "description": "Verified patient reviews and testimonials"
+        },
+        "contact": {
+          "type": "object",
+          "description": "Direct contact details, phone, email, and WhatsApp"
+        },
+        "socialLinks": {
+          "type": "object",
+          "description": "Social media links"
+        },
+        "seo": {
+          "type": "object",
+          "description": "SEO meta title, meta description, and keywords"
+        },
+        "sectionsConfig": {
+          "type": "object",
+          "description": "Visibility and display order settings for profile website sections"
+        },
+        "authorId": {
+          "type": "string",
+          "description": "UID of the administrator who created or manages this profile"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "ISO timestamp of creation"
+        },
+        "updatedAt": {
+          "type": "string",
+          "description": "ISO timestamp of last update"
+        }
+      },
+      "required": ["id", "slug", "name", "specialty", "status"]
+    },
+    "Admin": {
+      "title": "Admin",
+      "description": "Authorized administrator record for role verification",
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string",
+          "description": "Administrator email address"
+        },
+        "role": {
+          "type": "string",
+          "description": "Role type, must be admin"
+        },
+        "createdAt": {
+          "type": "string",
+          "description": "Timestamp when admin access was provisioned"
+        }
+      },
+      "required": ["email", "role"]
+    }
+  },
+  "firestore": {
+    "/doctors/{doctorId}": {
+      "schema": {
+        "$ref": "Doctor"
+      },
+      "description": "Collection of doctor websites. Published profiles are publicly readable. All writes require admin role or custom claim."
+    },
+    "/admins/{adminId}": {
+      "schema": {
+        "$ref": "Admin"
+      },
+      "description": "Trusted administrative users who have access to manage doctor profiles and the dashboard."
+    }
+  }
+}

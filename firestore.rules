@@ -1,0 +1,59 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 1. Global Default-Deny Catch-All
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Helper functions
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Gated admin check: custom claim (admin: true) OR trusted record in admins collection OR bootstrapped verified user
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.admin == true ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (request.auth.token.email == "mmha42472@gmail.com" && request.auth.token.email_verified == true)
+      );
+    }
+
+    // Validation for Doctor profile document
+    function isValidDoctor(data) {
+      return data.id is string && data.id.size() <= 128
+        && data.slug is string && data.slug.size() <= 128
+        && data.name is string && data.name.size() <= 200
+        && data.specialty is string && data.specialty.size() <= 200
+        && data.status is string && (data.status == 'published' || data.status == 'draft' || data.status == 'archived');
+    }
+
+    // Doctors Collection:
+    // Public visitors can ONLY read published profiles. Draft and archived profiles are restricted to admins.
+    // Writes (create, update, delete) are strictly permitted for authorized admins only.
+    match /doctors/{doctorId} {
+      allow get: if isValidId(doctorId) && (
+        resource.data.status == 'published' || isAdmin()
+      );
+      allow list: if isAdmin() || (
+        resource.data.status == 'published'
+      );
+      allow create: if isAdmin() && isValidId(doctorId) && isValidDoctor(request.resource.data);
+      allow update: if isAdmin() && isValidId(doctorId) && isValidDoctor(request.resource.data);
+      allow delete: if isAdmin() && isValidId(doctorId);
+    }
+
+    // Admins Collection:
+    // Holds trusted admin profile records.
+    match /admins/{adminId} {
+      allow get: if isValidId(adminId) && isSignedIn() && (request.auth.uid == adminId || isAdmin());
+      allow list: if isAdmin();
+      allow write: if isAdmin();
+    }
+  }
+}
