@@ -8,13 +8,12 @@ import {
   query, 
   where 
 } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../firebase/config';
+import { db, isFirebaseReady, handleFirestoreError, OperationType } from '../firebase/config';
 import { DoctorProfile, DoctorStatus } from '../types/doctor';
 import { DEMO_DOCTORS } from '../data/demoDoctors';
 
 const COLLECTION_NAME = 'doctors';
 const STORAGE_KEY_CUSTOM_DOCTORS = 'medframe_local_doctors_cache_v1';
-const STORAGE_KEY_DATA_SOURCE_MODE = 'medframe_data_source_mode'; // 'hybrid' | 'cloud' | 'demo'
 
 export interface LoadResult {
   doctors: DoctorProfile[];
@@ -23,7 +22,7 @@ export interface LoadResult {
 }
 
 /**
- * Loads custom doctors stored in browser localStorage.
+ * Loads custom doctors stored in browser localStorage safely.
  */
 function getLocalCustomDoctors(): DoctorProfile[] {
   try {
@@ -36,7 +35,7 @@ function getLocalCustomDoctors(): DoctorProfile[] {
 }
 
 /**
- * Saves custom doctors to browser localStorage as fallback.
+ * Saves custom doctors to browser localStorage safely.
  */
 function setLocalCustomDoctors(doctors: DoctorProfile[]): void {
   try {
@@ -50,40 +49,49 @@ function setLocalCustomDoctors(doctors: DoctorProfile[]): void {
  * Fetches all doctors according to authorization level.
  * Public users ONLY receive 'published' profiles.
  * Admins receive all (published, draft, archived).
+ * Implements a 2s timeout race so dormant or slow connections fall back instantly to demo data.
  */
 export async function getDoctorsList(isAdmin: boolean = false): Promise<LoadResult> {
   const localItems = getLocalCustomDoctors();
 
-  try {
-    const doctorsRef = collection(db, COLLECTION_NAME);
-    let q;
+  // Try Firestore only if ready
+  if (db && isFirebaseReady) {
+    try {
+      const doctorsRef = collection(db, COLLECTION_NAME);
+      let q;
 
-    if (isAdmin) {
-      q = query(doctorsRef);
-    } else {
-      q = query(doctorsRef, where('status', '==', 'published'));
+      if (isAdmin) {
+        q = query(doctorsRef);
+      } else {
+        q = query(doctorsRef, where('status', '==', 'published'));
+      }
+
+      // Add a 2s timeout race to guarantee fast boot
+      const fetchPromise = getDocs(q);
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('timeout')), 2000)
+      );
+
+      const snapshot = await Promise.race([fetchPromise, timeoutPromise]);
+      const cloudDoctors: DoctorProfile[] = [];
+
+      snapshot.forEach((docSnap) => {
+        cloudDoctors.push(docSnap.data() as DoctorProfile);
+      });
+
+      if (cloudDoctors.length > 0) {
+        return {
+          doctors: cloudDoctors,
+          source: 'cloud',
+          liveSynced: true
+        };
+      }
+    } catch {
+      // Fallback seamlessly to local and demo data
     }
-
-    const snapshot = await getDocs(q);
-    const cloudDoctors: DoctorProfile[] = [];
-
-    snapshot.forEach((docSnap) => {
-      cloudDoctors.push(docSnap.data() as DoctorProfile);
-    });
-
-    if (cloudDoctors.length > 0) {
-      // Cloud is active and has documents!
-      return {
-        doctors: cloudDoctors,
-        source: 'cloud',
-        liveSynced: true
-      };
-    }
-  } catch (error) {
-    console.info('Cloud fetch note (using local/seed data):', error instanceof Error ? error.message : error);
   }
 
-  // Fallback: If cloud is empty or rules denied anonymous listing, merge Demo + Local Custom
+  // Fallback: Merge Demo + Local Custom
   let merged = [...DEMO_DOCTORS];
   
   // Overwrite or append local items
@@ -115,22 +123,29 @@ export async function getDoctorsList(isAdmin: boolean = false): Promise<LoadResu
 export async function getDoctorBySlug(slug: string, isAdmin: boolean = false): Promise<DoctorProfile | null> {
   if (!slug) return null;
 
-  // 1. Try fetching from Firestore
-  try {
-    const doctorsRef = collection(db, COLLECTION_NAME);
-    const q = query(doctorsRef, where('slug', '==', slug));
-    const snapshot = await getDocs(q);
+  // 1. Try fetching from Firestore if ready
+  if (db && isFirebaseReady) {
+    try {
+      const doctorsRef = collection(db, COLLECTION_NAME);
+      const q = query(doctorsRef, where('slug', '==', slug));
+      
+      const fetchPromise = getDocs(q);
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('timeout')), 2000)
+      );
 
-    if (!snapshot.empty) {
-      const docData = snapshot.docs[0].data() as DoctorProfile;
-      if (docData.status === 'published' || isAdmin) {
-        return docData;
+      const snapshot = await Promise.race([fetchPromise, timeoutPromise]);
+
+      if (!snapshot.empty) {
+        const docData = snapshot.docs[0].data() as DoctorProfile;
+        if (docData.status === 'published' || isAdmin) {
+          return docData;
+        }
+        return null;
       }
-      // Profile is draft and visitor is not authorized
-      return null;
+    } catch {
+      // Fallback to cache and demo
     }
-  } catch (error) {
-    console.info('Direct cloud slug lookup notice, checking cache/demo:', error);
   }
 
   // 2. Check local modifications
@@ -167,14 +182,15 @@ export async function saveDoctorProfile(profile: DoctorProfile): Promise<{ succe
 
   let cloudSaved = false;
 
-  // Save to Firestore
-  try {
-    const docRef = doc(db, COLLECTION_NAME, updatedProfile.id);
-    await setDoc(docRef, updatedProfile);
-    cloudSaved = true;
-  } catch (error) {
-    console.warn('Firestore cloud save failed or rules restricted. Saving locally:', error);
-    // Don't throw if in local testing, continue to local storage
+  // Save to Firestore if available
+  if (db && isFirebaseReady) {
+    try {
+      const docRef = doc(db, COLLECTION_NAME, updatedProfile.id);
+      await setDoc(docRef, updatedProfile);
+      cloudSaved = true;
+    } catch (error) {
+      console.warn('Firestore cloud save failed or offline. Saved locally:', error);
+    }
   }
 
   // Always update local cache
@@ -194,12 +210,14 @@ export async function saveDoctorProfile(profile: DoctorProfile): Promise<{ succe
  * Deletes a doctor profile.
  */
 export async function deleteDoctorProfile(id: string): Promise<boolean> {
-  // Delete from Firestore
-  try {
-    const docRef = doc(db, COLLECTION_NAME, id);
-    await deleteDoc(docRef);
-  } catch (error) {
-    console.warn('Firestore deletion notice:', error);
+  // Delete from Firestore if available
+  if (db && isFirebaseReady) {
+    try {
+      const docRef = doc(db, COLLECTION_NAME, id);
+      await deleteDoc(docRef);
+    } catch (error) {
+      console.warn('Firestore deletion notice:', error);
+    }
   }
 
   // Delete from local cache
@@ -223,7 +241,7 @@ export async function duplicateDoctorProfile(source: DoctorProfile): Promise<Doc
     slug: newSlug,
     name: `${source.name} (نسخة مسودة)`,
     nameEn: source.nameEn ? `${source.nameEn} (Copy)` : undefined,
-    status: 'draft', // Cloned profiles always start as drafts
+    status: 'draft',
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
     isDemo: false
@@ -254,6 +272,10 @@ export async function toggleDoctorStatus(
  * Syncs demo doctors into live Firestore collection.
  */
 export async function syncDemoDataToFirestore(): Promise<{ count: number; error?: string }> {
+  if (!db || !isFirebaseReady) {
+    return { count: 0, error: 'قاعدة بيانات فايربيس غير متصلة حالياً. يرجى التحقق من إعدادات المفاتيح.' };
+  }
+
   let count = 0;
   try {
     for (const demoDoc of DEMO_DOCTORS) {

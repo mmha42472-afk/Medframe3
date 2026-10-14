@@ -9,6 +9,16 @@
     <meta property="og:description" content="منصة سحابية متطورة للأطباء والمراكز الطبية لبناء وتخصيص مواقع إلكترونية احترافية وإدارة الملفات الطبية مع دعم كامل للغة العربية ونظام أمان متقدم." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- GitHub Pages Trailing Slash Fix: Ensures relative assets (./assets/...) never 404 on repo root -->
+    <script>
+      (function() {
+        var path = window.location.pathname;
+        if (path.length > 1 && !path.endsWith('/') && !path.split('/').pop().includes('.')) {
+          window.location.replace(path + '/' + window.location.search + window.location.hash);
+        }
+      })();
+    </script>
     
     <!-- Google Fonts for Arabic & Display Typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">

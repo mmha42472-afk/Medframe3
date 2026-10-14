@@ -104,7 +104,6 @@ function MainApp() {
   const loadDoctors = useCallback(async () => {
     setLoading(true);
     try {
-      await testFirestoreConnection();
       const result = await getDoctorsList(isAdmin);
       setDoctors(result.doctors);
       setIsCloudLive(result.liveSynced);

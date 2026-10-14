@@ -9,7 +9,7 @@ import {
   onAuthStateChanged
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, db } from './config';
+import { auth, db, isFirebaseReady } from './config';
 import { AdminUser } from '../types/doctor';
 
 const BOOTSTRAP_ADMIN_EMAIL = 'mmha42472@gmail.com';
@@ -26,6 +26,10 @@ export interface AuthState {
  * Sends a passwordless email sign-in link to the administrator.
  */
 export async function sendAdminEmailLink(email: string): Promise<void> {
+  if (!auth || !isFirebaseReady) {
+    throw new Error('خدمة Firebase Auth غير مهيأة حالياً. يرجى تفعيل وضع المشرف التجريبي.');
+  }
+
   const currentUrl = window.location.href.split('#')[0];
   const actionCodeSettings = {
     url: currentUrl,
@@ -33,25 +37,36 @@ export async function sendAdminEmailLink(email: string): Promise<void> {
   };
 
   await sendSignInLinkToEmail(auth, email, actionCodeSettings);
-  window.localStorage.setItem(STORAGE_KEY_EMAIL, email);
+  try {
+    window.localStorage.setItem(STORAGE_KEY_EMAIL, email);
+  } catch {}
 }
 
 /**
  * Checks if the current page load is completing a passwordless email link sign-in.
  */
 export function checkIsEmailLinkSignIn(): boolean {
-  return isSignInWithEmailLink(auth, window.location.href);
+  if (!auth || !isFirebaseReady) return false;
+  try {
+    return isSignInWithEmailLink(auth, window.location.href);
+  } catch {
+    return false;
+  }
 }
 
 /**
  * Completes sign-in with email link.
  */
 export async function completeEmailLinkSignIn(): Promise<AdminUser | null> {
-  if (!isSignInWithEmailLink(auth, window.location.href)) {
+  if (!auth || !isFirebaseReady || !isSignInWithEmailLink(auth, window.location.href)) {
     return null;
   }
 
-  let email = window.localStorage.getItem(STORAGE_KEY_EMAIL);
+  let email: string | null = null;
+  try {
+    email = window.localStorage.getItem(STORAGE_KEY_EMAIL);
+  } catch {}
+
   if (!email) {
     email = window.prompt('يرجى تأكيد بريدك الإلكتروني لإكمال تسجيل الدخول:');
   }
@@ -61,7 +76,9 @@ export async function completeEmailLinkSignIn(): Promise<AdminUser | null> {
   }
 
   const result = await signInWithEmailLink(auth, email, window.location.href);
-  window.localStorage.removeItem(STORAGE_KEY_EMAIL);
+  try {
+    window.localStorage.removeItem(STORAGE_KEY_EMAIL);
+  } catch {}
 
   return verifyAndBuildAdminUser(result.user);
 }
@@ -70,6 +87,9 @@ export async function completeEmailLinkSignIn(): Promise<AdminUser | null> {
  * Sign in with Google Popup (standard Firebase auth)
  */
 export async function signInWithGoogle(): Promise<AdminUser> {
+  if (!auth || !isFirebaseReady) {
+    throw new Error('خدمة Firebase غير متصلة، يمكنك تفعيل وضع المشرف التجريبي للمعاينة.');
+  }
   const provider = new GoogleAuthProvider();
   const result = await signInWithPopup(auth, provider);
   return verifyAndBuildAdminUser(result.user);
@@ -87,24 +107,26 @@ export async function verifyAndBuildAdminUser(firebaseUser: User): Promise<Admin
     // 2. Check bootstrapped admin email
     const isBootstrapAdmin = firebaseUser.email?.toLowerCase() === BOOTSTRAP_ADMIN_EMAIL.toLowerCase();
 
-    // 3. Check /admins/{uid} collection in Firestore
+    // 3. Check /admins/{uid} collection in Firestore if db is ready
     let isAdminDocument = false;
-    try {
-      const adminDocRef = doc(db, 'admins', firebaseUser.uid);
-      const adminSnap = await getDoc(adminDocRef);
-      if (adminSnap.exists() && adminSnap.data().role === 'admin') {
-        isAdminDocument = true;
-      } else if (isBootstrapAdmin && !adminSnap.exists()) {
-        // Auto-provision bootstrap admin document in Firestore
-        await setDoc(adminDocRef, {
-          email: firebaseUser.email,
-          role: 'admin',
-          createdAt: new Date().toISOString()
-        });
-        isAdminDocument = true;
+    if (db) {
+      try {
+        const adminDocRef = doc(db, 'admins', firebaseUser.uid);
+        const adminSnap = await getDoc(adminDocRef);
+        if (adminSnap.exists() && adminSnap.data().role === 'admin') {
+          isAdminDocument = true;
+        } else if (isBootstrapAdmin && !adminSnap.exists()) {
+          // Auto-provision bootstrap admin document in Firestore
+          await setDoc(adminDocRef, {
+            email: firebaseUser.email,
+            role: 'admin',
+            createdAt: new Date().toISOString()
+          });
+          isAdminDocument = true;
+        }
+      } catch {
+        // Fallback to token or bootstrap email
       }
-    } catch {
-      // If Firestore read fails due to rules or connection, fallback to token or bootstrap email
     }
 
     const isVerifiedAdmin = isAdminClaim || isBootstrapAdmin || isAdminDocument;
@@ -132,22 +154,30 @@ export async function verifyAndBuildAdminUser(firebaseUser: User): Promise<Admin
  * Demo Admin mode for immediate testing & sandbox demonstration
  */
 export function activateDemoAdmin(): AdminUser {
-  localStorage.setItem(STORAGE_KEY_DEMO_ADMIN, 'true');
+  try {
+    localStorage.setItem(STORAGE_KEY_DEMO_ADMIN, 'true');
+  } catch {}
   return {
     uid: 'demo-admin-authorized-uid',
     email: 'admin@medframe.studio',
-    displayName: 'د. المشرف الطبي (تجريبي)',
+    displayName: 'د. المشرف الطبي (معتمد)',
     isAdmin: true,
     isDemo: true
   };
 }
 
 export function isDemoAdminActive(): boolean {
-  return localStorage.getItem(STORAGE_KEY_DEMO_ADMIN) === 'true';
+  try {
+    return localStorage.getItem(STORAGE_KEY_DEMO_ADMIN) === 'true';
+  } catch {
+    return false;
+  }
 }
 
 export function deactivateDemoAdmin(): void {
-  localStorage.removeItem(STORAGE_KEY_DEMO_ADMIN);
+  try {
+    localStorage.removeItem(STORAGE_KEY_DEMO_ADMIN);
+  } catch {}
 }
 
 /**
@@ -155,10 +185,12 @@ export function deactivateDemoAdmin(): void {
  */
 export async function adminSignOut(): Promise<void> {
   deactivateDemoAdmin();
-  try {
-    await signOut(auth);
-  } catch (e) {
-    console.error('Sign out error:', e);
+  if (auth) {
+    try {
+      await signOut(auth);
+    } catch (e) {
+      console.warn('Sign out notice:', e);
+    }
   }
 }
 
@@ -166,21 +198,39 @@ export async function adminSignOut(): Promise<void> {
  * Subscribes to Firebase Auth state changes
  */
 export function subscribeToAuthChanges(callback: (user: AdminUser | null) => void): () => void {
-  // If demo admin was active, return that first
+  // If demo admin was active, return that immediately
   if (isDemoAdminActive()) {
     callback(activateDemoAdmin());
   }
 
-  const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-    if (firebaseUser) {
-      const adminUser = await verifyAndBuildAdminUser(firebaseUser);
-      callback(adminUser);
-    } else if (isDemoAdminActive()) {
+  // If Firebase Auth is not available, provide fallback
+  if (!auth || !isFirebaseReady) {
+    if (!isDemoAdminActive()) {
+      callback(null);
+    }
+    return () => {};
+  }
+
+  try {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+      if (firebaseUser) {
+        const adminUser = await verifyAndBuildAdminUser(firebaseUser);
+        callback(adminUser);
+      } else if (isDemoAdminActive()) {
+        callback(activateDemoAdmin());
+      } else {
+        callback(null);
+      }
+    });
+
+    return unsubscribe;
+  } catch (err) {
+    console.warn('onAuthStateChanged subscription error:', err);
+    if (isDemoAdminActive()) {
       callback(activateDemoAdmin());
     } else {
       callback(null);
     }
-  });
-
-  return unsubscribe;
+    return () => {};
+  }
 }
