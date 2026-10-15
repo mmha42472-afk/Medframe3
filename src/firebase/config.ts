@@ -1,17 +1,27 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
 import { getAuth, Auth } from 'firebase/auth';
 import { getFirestore, Firestore, doc, getDocFromServer } from 'firebase/firestore';
-import firebaseConfigData from '../../firebase-applet-config.json';
 
-// Support both JSON config and environment variable overrides
+// Provisioned Firebase Applet Configuration defaults (ensures standalone build works on any machine/CI)
+const DEFAULT_FIREBASE_CONFIG = {
+  projectId: "gen-lang-client-0271207340",
+  appId: "1:143050958557:web:877901df18746e5a345d34",
+  apiKey: "AIzaSyCIGuxGnGxK-vzSCE9W5rUr5pq8hGSwEuU",
+  authDomain: "gen-lang-client-0271207340.firebaseapp.com",
+  firestoreDatabaseId: "ai-studio-98b8adb8-741c-4553-a4f5-5a1ce211c9c0",
+  storageBucket: "gen-lang-client-0271207340.firebasestorage.app",
+  messagingSenderId: "143050958557",
+};
+
+// Support both built-in defaults and environment variable overrides
 const firebaseConfig = {
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || firebaseConfigData.projectId || '',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || firebaseConfigData.appId || '',
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || firebaseConfigData.apiKey || '',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || firebaseConfigData.authDomain || '',
-  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || firebaseConfigData.firestoreDatabaseId || '',
-  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || firebaseConfigData.storageBucket || '',
-  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || firebaseConfigData.messagingSenderId || '',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_CONFIG.projectId,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID || DEFAULT_FIREBASE_CONFIG.appId,
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || DEFAULT_FIREBASE_CONFIG.apiKey,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || DEFAULT_FIREBASE_CONFIG.authDomain,
+  firestoreDatabaseId: import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || DEFAULT_FIREBASE_CONFIG.firestoreDatabaseId,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || DEFAULT_FIREBASE_CONFIG.storageBucket,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || DEFAULT_FIREBASE_CONFIG.messagingSenderId,
 };
 
 let app: FirebaseApp | null = null;
@@ -55,8 +65,7 @@ export async function testFirestoreConnection(): Promise<boolean> {
 
     await Promise.race([checkPromise, timeoutPromise]);
     return true;
-  } catch (error) {
-    // Both unavailable and offline errors indicate offline/dormant state which is expected and handled gracefully
+  } catch {
     return false;
   }
 }

@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="utf-8">
+    <title>MedFrame Studio | جاري التحويل...</title>
+    <script>
+      // Single Page Application (SPA) redirect script for GitHub Pages
+      // Resolves deep routes like /repo-name/doctor/:slug back to /repo-name/#/doctor/:slug
+      (function() {
+        var path = window.location.pathname;
+        var host = window.location.hostname;
+        var segments = path.split('/').filter(Boolean);
+
+        // Check if hosted under a GitHub project repository (e.g., user.github.io/repo-name/...)
+        var isGitHubProject = host.endsWith('github.io') && segments.length > 0 && !host.startsWith(segments[0]);
+
+        var base = isGitHubProject ? '/' + segments[0] + '/' : '/';
+        var remainingRoute = isGitHubProject ? segments.slice(1).join('/') : segments.join('/');
+
+        // Strip index.html from route if present
+        remainingRoute = remainingRoute.replace(/index\.html$/i, '').replace(/\/+$/, '');
+
+        var targetUrl = base;
+        if (remainingRoute) {
+          targetUrl += '#/' + remainingRoute;
+        } else {
+          targetUrl += '#/';
+        }
+
+        if (window.location.search) {
+          targetUrl += (targetUrl.includes('?') ? '&' : '?') + window.location.search.slice(1);
+        }
+
+        window.location.replace(targetUrl);
+      })();
+    </script>
+  </head>
+  <body style="font-family: sans-serif; text-align: center; padding-top: 50px; background-color: #f8fafc; color: #334155;">
+    <h3>جاري تحميل الصفحة الطبية...</h3>
+    <p>إذا لم يتم التحويل تلقائياً، <a href="./#/">انقر هنا للرجوع للصفحة الرئيسية</a></p>
+  </body>
+</html>

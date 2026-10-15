@@ -30,6 +30,18 @@
   </head>
   <body class="bg-slate-50 text-slate-900 antialiased font-sans selection:bg-teal-500 selection:text-white min-h-screen">
     <div id="root"></div>
+
+    <!-- Fallback if uncompiled source index.html is loaded directly on GitHub Pages root -->
+    <script>
+      setTimeout(function() {
+        var root = document.getElementById('root');
+        if (root && root.children.length === 0 && window.location.hostname.endsWith('github.io') && !window.location.pathname.includes('/docs/')) {
+          var clean = window.location.pathname.replace(/\/+$/, '');
+          window.location.replace(clean + '/docs/' + window.location.search + window.location.hash);
+        }
+      }, 1200);
+    </script>
+
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
