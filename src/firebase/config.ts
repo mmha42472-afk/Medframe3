@@ -39,6 +39,11 @@ export function getActiveFirebaseConfig(): FirebaseConfigParams {
     if (saved) {
       const parsed = JSON.parse(saved);
       if (parsed.apiKey && parsed.projectId) {
+        // If user changed to their own custom project but firestoreDatabaseId is the studio template ID,
+        // use '(default)' database because standard projects do not have this custom database ID.
+        if (parsed.projectId !== DEFAULT_FIREBASE_CONFIG.projectId && parsed.firestoreDatabaseId === DEFAULT_FIREBASE_CONFIG.firestoreDatabaseId) {
+          parsed.firestoreDatabaseId = '(default)';
+        }
         return parsed;
       }
     }
@@ -83,9 +88,13 @@ export function initializeFirebaseInstances(): boolean {
         app = initializeApp(config);
       }
 
-      // Initialize Firestore with specific database ID if specified
+      // Initialize Firestore with specific database ID if specified, with fallback to default
       if (config.firestoreDatabaseId && config.firestoreDatabaseId !== '(default)') {
-        dbInstance = getFirestore(app, config.firestoreDatabaseId);
+        try {
+          dbInstance = getFirestore(app, config.firestoreDatabaseId);
+        } catch {
+          dbInstance = getFirestore(app);
+        }
       } else {
         dbInstance = getFirestore(app);
       }

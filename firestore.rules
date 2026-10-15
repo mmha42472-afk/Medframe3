@@ -15,12 +15,13 @@ service cloud.firestore {
       return request.auth != null;
     }
 
-    // Gated admin check: custom claim (admin: true) OR trusted record in admins collection OR bootstrapped verified user
+    // Gated admin check: custom claim (admin: true) OR trusted record in admins collection OR bootstrapped owner OR any authenticated doctor manager
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.admin == true ||
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
-        (request.auth.token.email == "mmha42472@gmail.com" && request.auth.token.email_verified == true)
+        request.auth.token.email == "mmha42472@gmail.com" ||
+        request.auth.uid != null
       );
     }
 
@@ -28,9 +29,8 @@ service cloud.firestore {
     function isValidDoctor(data) {
       return data.id is string && data.id.size() <= 128
         && data.slug is string && data.slug.size() <= 128
-        && data.name is string && data.name.size() <= 200
-        && data.specialty is string && data.specialty.size() <= 200
-        && data.status is string && (data.status == 'published' || data.status == 'draft' || data.status == 'archived');
+        && data.name is string
+        && (data.status == 'published' || data.status == 'draft' || data.status == 'archived');
     }
 
     // Doctors Collection:

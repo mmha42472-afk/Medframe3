@@ -32,7 +32,8 @@ import {
   Stethoscope,
   Globe,
   Plus,
-  Sparkles
+  Sparkles,
+  Lock
 } from 'lucide-react';
 
 interface DoctorWebsiteViewProps {
@@ -218,6 +219,23 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
               </button>
             )}
           </div>
+        </aside>
+      )}
+      {/* Draft Notification Banner for Editor */}
+      {!isPreviewMode && doctor.status === 'draft' && (
+        <aside aria-label="Draft Notice" className="bg-amber-400 text-slate-950 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold shadow-xs">
+          <div className="flex items-center gap-2">
+            <Lock className="w-4 h-4 shrink-0 text-slate-900" />
+            <span>هذا الموقع محفوظ حالياً كـ (مسودة خاصة Draft) ولا يمكن لعامة الزوار تصفحه حتى تقوم بنشره.</span>
+          </div>
+          {onUpdateDoctor && (
+            <button
+              onClick={() => onUpdateDoctor({ ...doctor, status: 'published', updatedAt: new Date().toISOString() })}
+              className="px-3.5 py-1.5 bg-slate-950 hover:bg-black text-white rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer"
+            >
+              نشر الموقع أونلاين للعامة الآن
+            </button>
+          )}
         </aside>
       )}
 

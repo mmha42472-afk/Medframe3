@@ -77,6 +77,8 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [autoTranslateNotice, setAutoTranslateNotice] = useState<string | null>(null);
+  const [isEditingSlug, setIsEditingSlug] = useState(false);
+  const [slugInput, setSlugInput] = useState(initialDoctor.slug);
 
   // Subspecialty tag input helper
   const [subspecialtyInput, setSubspecialtyInput] = useState('');
@@ -345,17 +347,31 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
     setIsSaving(true);
     setSaveSuccess(false);
     try {
+      const targetStatus = statusOverride || doctor.status;
       const updated = {
         ...doctor,
-        status: statusOverride || doctor.status
+        status: targetStatus
       };
       setDoctor(updated);
       await onSave(updated);
       setSaveSuccess(true);
+      if (statusOverride === 'published') {
+        setAutoTranslateNotice(`تم نشر موقع ${doctor.name} للعامة أونلاين بنجاح! الموقع متاح الآن للجميع بدون تسجيل دخول.`);
+      } else if (statusOverride === 'draft') {
+        setAutoTranslateNotice(`تم تحويل موقع ${doctor.name} إلى مسودة خاصة.`);
+      }
       setTimeout(() => setSaveSuccess(false), 3000);
     } finally {
       setIsSaving(false);
     }
+  };
+
+  const handleSaveSlug = () => {
+    const cleaned = slugInput.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    if (cleaned) {
+      setDoctor(prev => ({ ...prev, slug: cleaned }));
+    }
+    setIsEditingSlug(false);
   };
 
   return (
@@ -397,9 +413,48 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                 {doctor.status === 'published' ? 'منشور أونلاين' : 'مسودة'}
               </span>
             </div>
-            <p className="text-xs text-slate-500 font-mono dir-ltr text-right">
-              /doctor/{doctor.slug}
-            </p>
+            {isEditingSlug ? (
+              <div className="flex items-center gap-1.5 mt-1" dir="ltr">
+                <span className="text-[11px] text-slate-400 font-mono">/doctor/</span>
+                <input
+                  type="text"
+                  value={slugInput}
+                  onChange={(e) => setSlugInput(e.target.value)}
+                  className="px-2 py-0.5 text-xs font-mono bg-slate-50 border border-teal-500 rounded outline-none w-44"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={handleSaveSlug}
+                  className="px-2 py-0.5 bg-teal-800 text-white rounded text-[10px] font-bold cursor-pointer"
+                >
+                  حفظ
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsEditingSlug(false)}
+                  className="px-2 py-0.5 bg-slate-200 text-slate-700 rounded text-[10px] cursor-pointer"
+                >
+                  إلغاء
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 mt-0.5">
+                <p className="text-xs text-slate-500 font-mono dir-ltr text-right">
+                  /doctor/{doctor.slug}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSlugInput(doctor.slug);
+                    setIsEditingSlug(true);
+                  }}
+                  className="text-[10px] text-teal-700 hover:text-teal-900 font-medium underline cursor-pointer"
+                >
+                  تعديل الرابط
+                </button>
+              </div>
+            )}
           </div>
         </div>
 

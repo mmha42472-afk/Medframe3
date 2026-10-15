@@ -14,6 +14,8 @@ import {
   duplicateDoctorProfile, 
   toggleDoctorStatus, 
   syncDemoDataToFirestore,
+  syncAllDoctorsToFirestore,
+  findDoctorAnyStatus,
   exportDoctorsJSON,
   importDoctorsJSON
 } from './services/doctorService';
@@ -128,7 +130,10 @@ function MainApp() {
       setCurrentRoute(route);
 
       if (route.page === 'doctor' && route.slug) {
-        const found = await getDoctorBySlug(route.slug, isAdmin);
+        let found = await getDoctorBySlug(route.slug, isAdmin);
+        if (!found && isAdmin) {
+          found = await findDoctorAnyStatus(route.slug);
+        }
         if (found) {
           setActiveDoctor(found);
         } else {
@@ -155,24 +160,32 @@ function MainApp() {
   };
 
   const openDoctorPublic = (slug: string) => {
+    const target = doctors.find(d => d.slug === slug);
+    if (target) {
+      setActiveDoctor(target);
+    }
     window.location.hash = `#/doctor/${slug}`;
   };
 
-  // Sync demo data to Firestore
+  // Sync all doctor data to Firestore
   const handleSyncCloud = async () => {
     if (isSyncing) return;
     setIsSyncing(true);
     try {
-      const result = await syncDemoDataToFirestore();
-      if (result.error) {
-        showToast(`ملاحظة سحابية: ${result.error}`, 'info');
+      const result = await syncAllDoctorsToFirestore(doctors);
+      if (result.error && result.count === 0) {
+        showToast(`تنبيه فايربيس: ${result.error}`, 'error');
+      } else if (result.error) {
+        showToast(result.error, 'info');
+        setIsCloudLive(true);
+        await loadDoctors();
       } else {
-        showToast(`تمت مزامنة ${result.count} ملفات طبية إلى سحابة فايربيس بنجاح!`, 'success');
+        showToast(`تم بنجاح نقل ومزامنة ${result.count} موقع طبيب إلى قاعدة بيانات فايربيس!`, 'success');
         setIsCloudLive(true);
         await loadDoctors();
       }
     } catch (err) {
-      showToast('تعذر إكمال المزامنة السحابية.', 'error');
+      showToast('تعذر إكمال المزامنة السحابية مع خوادم فايربيس.', 'error');
     } finally {
       setIsSyncing(false);
     }
@@ -194,7 +207,9 @@ function MainApp() {
       setActiveDoctor(doctorToSave);
 
       if (res.cloudSaved) {
-        showToast('تم حفظ التعديلات في سحابة فايربيس وقاعدة البيانات!', 'success');
+        showToast('تم حفظ التعديلات في سحابة فايربيس وقاعدة البيانات بنجاح!', 'success');
+      } else if (res.cloudError) {
+        showToast(`تم الحفظ محلياً. تنبيه السحابة: ${res.cloudError}`, 'info');
       } else {
         showToast('تم حفظ التعديلات محلياً بنجاح.', 'success');
       }
@@ -276,6 +291,25 @@ function MainApp() {
     navigateTo('builder');
   };
 
+  // Publish doctor directly and open their website
+  const handlePublishDoctorDirectly = async (doctorToPublish: DoctorProfile) => {
+    const updated: DoctorProfile = {
+      ...doctorToPublish,
+      status: 'published',
+      updatedAt: new Date().toISOString()
+    };
+    await handleSaveDoctor(updated);
+    setActiveDoctor(updated);
+    setCurrentRoute({ page: 'doctor', slug: updated.slug });
+    window.location.hash = `#/doctor/${updated.slug}`;
+    showToast(`تم بنجاح نشر موقع ${updated.name} للعامة أونلاين!`, 'success');
+  };
+
+  const handlePreviewDraftDirectly = (doctorToPreview: DoctorProfile) => {
+    setActiveDoctor(doctorToPreview);
+    setCurrentRoute({ page: 'doctor', slug: doctorToPreview.slug });
+  };
+
   // ==========================================
   // RENDER ROUTED VIEWS
   // ==========================================
@@ -303,9 +337,13 @@ function MainApp() {
       <NotFoundView
         slug={currentRoute.slug}
         publishedDoctors={doctors.filter(d => d.status === 'published')}
+        allDoctors={doctors}
         onSelectDoctor={openDoctorPublic}
         onGoHome={() => navigateTo('dashboard')}
         onOpenLogin={() => setIsLoginModalOpen(true)}
+        onPublishDoctor={handlePublishDoctorDirectly}
+        onPreviewDraft={handlePreviewDraftDirectly}
+        onEditInBuilder={handleEditDoctorInBuilder}
       />
     );
   }

@@ -30,7 +30,7 @@ export const NewDoctorModal: React.FC<NewDoctorModalProps> = ({
   const [city, setCity] = useState('الرياض');
   const [phone, setPhone] = useState('+966 11 000 0000');
   const [themeColor, setThemeColor] = useState<ThemeColor>('teal');
-  const [status, setStatus] = useState<'draft' | 'published'>('draft');
+  const [status, setStatus] = useState<'draft' | 'published'>('published');
 
   if (!isOpen) return null;
 
@@ -38,9 +38,10 @@ export const NewDoctorModal: React.FC<NewDoctorModalProps> = ({
     e.preventDefault();
     if (!name.trim() || !specialty.trim()) return;
 
-    // Generate slug from English name or timestamp
-    const baseSlug = nameEn.trim()
-      ? `dr-${nameEn.toLowerCase().replace(/[^a-z0-9]/g, '-')}`
+    // Clean English name and generate single-prefix slug
+    const cleanEn = nameEn.trim().toLowerCase().replace(/^(dr[-_.\s]*)+/g, '');
+    const baseSlug = cleanEn
+      ? `dr-${cleanEn.replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')}`
       : `dr-${Date.now().toString().slice(-6)}`;
 
     const newDoctor: DoctorProfile = {
