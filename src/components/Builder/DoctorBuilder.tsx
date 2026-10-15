@@ -12,6 +12,7 @@ import {
 } from '../../types/doctor';
 import { THEME_PALETTES, getTheme } from '../../utils/theme';
 import { DoctorWebsiteView } from '../Preview/DoctorWebsiteView';
+import { firebaseConfig, isFirebaseReady } from '../../firebase/config';
 import { 
   ArrowRight, 
   Save, 
@@ -35,7 +36,11 @@ import {
   FileText,
   HelpCircle,
   Share2,
-  Search
+  Search,
+  Settings2,
+  Cloud,
+  X,
+  ImagePlus
 } from 'lucide-react';
 
 interface DoctorBuilderProps {
@@ -68,6 +73,8 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
   const [showLivePreview, setShowLivePreview] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [showFirebaseSettings, setShowFirebaseSettings] = useState(false);
+  const [photoError, setPhotoError] = useState('');
 
   // Subspecialty tag input helper
   const [subspecialtyInput, setSubspecialtyInput] = useState('');
@@ -361,6 +368,10 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
           >
             <Layers className="w-3.5 h-3.5" />
             <span>{showLivePreview ? 'إخفاء المعاينة' : 'إظهار المعاينة الحية'}</span>
+          </button>
+
+          <button type="button" onClick={() => setShowFirebaseSettings(true)} className="px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5" title="إعدادات Firebase">
+            <Settings2 className="w-3.5 h-3.5 text-slate-500" /><span>إعدادات المنصة</span>
           </button>
 
           {/* Direct Public Page */}
@@ -725,8 +736,36 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                     placeholder="اتركه فارغاً ليتم إنشاء مونوغرام طبي أنيق تلقائياً"
                     className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-700 outline-none dir-ltr text-left"
                   />
+                  <label className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-teal-300 bg-teal-50/60 px-4 py-3 text-xs font-bold text-teal-900 transition hover:bg-teal-50">
+                    <ImagePlus className="h-4 w-4" />
+                    <span>رفع صورة من الجهاز</span>
+                    <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (!file) return;
+                      setPhotoError('');
+                      if (file.size > 8 * 1024 * 1024) { setPhotoError('حجم الصورة يتجاوز 8 ميغابايت. اختر صورة أصغر.'); event.currentTarget.value = ''; return; }
+                      const image = new Image();
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        image.onload = () => {
+                          const scale = Math.min(1, 900 / Math.max(image.width, image.height));
+                          const canvas = document.createElement('canvas');
+                          canvas.width = Math.max(1, Math.round(image.width * scale));
+                          canvas.height = Math.max(1, Math.round(image.height * scale));
+                          const context = canvas.getContext('2d');
+                          if (!context) { setPhotoError('تعذر معالجة الصورة. حاول بصيغة أخرى.'); return; }
+                          context.drawImage(image, 0, 0, canvas.width, canvas.height);
+                          handleFieldChange('avatarUrl', canvas.toDataURL('image/jpeg', 0.82));
+                        };
+                        image.onerror = () => setPhotoError('تعذر قراءة الصورة. جرّب ملف PNG أو JPG أو WebP.');
+                        image.src = String(reader.result);
+                      };
+                      reader.readAsDataURL(file);
+                    }} />
+                  </label>
+                  {photoError && <p role="alert" className="text-[11px] text-rose-600">{photoError}</p>}
                   <p className="text-[11px] text-slate-600">
-                    في حال عدم توفر رابط صورة، ينشئ النظام شارة مونوغرام طبية راقية مع الأحرف الأولى للطبيب.
+                    تُضغط الصورة محلياً قبل حفظها لتقليل حجمها. يمكنك أيضاً لصق رابط صورة عام أعلاه.
                   </p>
                 </div>
 
@@ -1358,6 +1397,42 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
 
           </div>
         )}
+
+      {showFirebaseSettings && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="firebase-settings-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowFirebaseSettings(false); }}>
+          <div className="w-full max-w-xl overflow-hidden rounded-3xl border border-white/60 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-l from-teal-50 to-white px-6 py-5">
+              <div className="flex items-center gap-3">
+                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-teal-800 text-white shadow-lg shadow-teal-900/15"><Cloud className="h-5 w-5" /></span>
+                <div><h3 id="firebase-settings-title" className="font-bold text-slate-900">إعدادات Firebase والمنصة</h3><p className="mt-0.5 text-xs text-slate-500">حالة الربط ومفاتيح إعداد المشروع</p></div>
+              </div>
+              <button type="button" onClick={() => setShowFirebaseSettings(false)} className="rounded-xl p-2 text-slate-500 hover:bg-slate-100" aria-label="إغلاق"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="space-y-5 p-6">
+              <div className={`flex items-center justify-between rounded-2xl border p-4 ${isFirebaseReady ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
+                <div><p className="text-sm font-bold text-slate-900">{isFirebaseReady ? 'Firebase مهيأ في هذا الإصدار' : 'Firebase غير مهيأ'}</p><p className="mt-1 text-xs text-slate-600">{isFirebaseReady ? `المشروع: ${firebaseConfig.projectId}` : 'أضف بيانات مشروعك في متغيرات البيئة ثم أعد البناء.'}</p></div>
+                <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${isFirebaseReady ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{isFirebaseReady ? 'متصل' : 'يحتاج إعداداً'}</span>
+              </div>
+              <div className="space-y-2">
+                <p className="text-xs font-bold text-slate-800">إعدادات البيئة المطلوبة</p>
+                <div className="grid gap-2 sm:grid-cols-2">{[
+                  ['VITE_FIREBASE_API_KEY', firebaseConfig.apiKey],
+                  ['VITE_FIREBASE_PROJECT_ID', firebaseConfig.projectId],
+                  ['VITE_FIREBASE_AUTH_DOMAIN', firebaseConfig.authDomain],
+                  ['VITE_FIREBASE_APP_ID', firebaseConfig.appId],
+                  ['VITE_FIREBASE_STORAGE_BUCKET', firebaseConfig.storageBucket],
+                  ['VITE_FIREBASE_MESSAGING_SENDER_ID', firebaseConfig.messagingSenderId],
+                  ['VITE_FIREBASE_FIRESTORE_DATABASE_ID', firebaseConfig.firestoreDatabaseId]
+                ].map(([label, value]) => <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"><p className="text-[10px] font-bold text-slate-500">{label}</p><p className="mt-1 truncate font-mono text-[11px] text-slate-800" title={value}>{value ? 'مضبوط في إعدادات البناء' : 'غير مضبوط'}</p></div>)}</div>
+              </div>
+              <div className="rounded-2xl bg-slate-900 p-4 text-white">
+                <p className="text-xs font-bold">طريقة الربط</p>
+                <p className="mt-1 text-xs leading-6 text-slate-300">أدخل القيم في ملف <code className="rounded bg-white/10 px-1.5 py-0.5 text-teal-200">.env</code> أو إعدادات أسرار النشر باسماء المتغيرات أعلاه، ثم أعد بناء التطبيق. لا تضع مفاتيح حساب الخدمة أو مفاتيح Admin هنا؛ مفاتيح Firebase للعميل ليست بديلاً عن قواعد Firestore الآمنة.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       </div>
 
