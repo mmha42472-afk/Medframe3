@@ -15,6 +15,7 @@ import { THEME_PALETTES, getTheme } from '../../utils/theme';
 import { translateDoctorProfileToEnglish } from '../../utils/translator';
 import { DoctorWebsiteView } from '../Preview/DoctorWebsiteView';
 import { DoctorPhotoUploader } from './DoctorPhotoUploader';
+import { DoctorSEOSection } from './DoctorSEOSection';
 import { 
   ArrowRight, 
   Save, 
@@ -1372,55 +1373,58 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
 
             {/* TAB 8: SEO & SOCIAL */}
             {activeTab === 'seo' && (
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <label className="block text-xs font-semibold text-slate-700">
-                    عنوان الصفحة لمحركات البحث (Meta Title)
-                  </label>
-                  <input
-                    type="text"
-                    value={doctor.seo?.metaTitle || ''}
-                    onChange={(e) => handleSEOChange('metaTitle', e.target.value)}
-                    placeholder="د. سارة المنصوري | استشارية جراحة القلب بالرياض"
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <label className="block text-xs font-semibold text-slate-700">
-                    وصف الصفحة في جوجل والمشاركات (Meta Description)
-                  </label>
-                  <textarea
-                    rows={3}
-                    value={doctor.seo?.metaDescription || ''}
-                    onChange={(e) => handleSEOChange('metaDescription', e.target.value)}
-                    placeholder="الموقع الرسمي لحجز المواعيد والاستشارات الطبية مع الاستشاري..."
-                    className="w-full p-2 text-xs bg-slate-50 border border-slate-200 rounded-xl outline-none"
-                  ></textarea>
-                </div>
+              <div className="space-y-6">
+                <DoctorSEOSection
+                  doctor={doctor}
+                  onChange={(newSEO) => setDoctor(prev => ({ ...prev, seo: newSEO }))}
+                  onUpdateDoctorField={(field, val) => setDoctor(prev => ({ ...prev, [field]: val }))}
+                />
 
                 {/* Social media links */}
-                <div className="pt-2 border-t border-slate-100 space-y-2">
-                  <h4 className="text-xs font-bold text-slate-900">روابط منصات التواصل الرسمية</h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                <div className="p-4 bg-white rounded-2xl border border-slate-200 space-y-3 shadow-sm">
+                  <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                    <Globe className="w-4 h-4 text-teal-800" />
+                    <h4 className="text-xs font-bold text-slate-900">روابط منصات التواصل والموقع الرسمي (Social Profiles)</h4>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
                     <div>
-                      <label className="block text-[11px] text-slate-500">حساب منصة X (تويتر)</label>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">حساب منصة X (تويتر)</label>
                       <input
                         type="url"
                         value={doctor.socialLinks?.twitter || ''}
                         onChange={(e) => handleSocialChange('twitter', e.target.value)}
-                        placeholder="https://x.com/..."
-                        className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg dir-ltr text-left font-mono"
+                        placeholder="https://x.com/dr_username"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl dir-ltr text-left font-mono"
                       />
                     </div>
                     <div>
-                      <label className="block text-[11px] text-slate-500">لينكد إن (LinkedIn)</label>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">لينكد إن (LinkedIn)</label>
                       <input
                         type="url"
                         value={doctor.socialLinks?.linkedin || ''}
                         onChange={(e) => handleSocialChange('linkedin', e.target.value)}
-                        placeholder="https://linkedin.com/in/..."
-                        className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg dir-ltr text-left font-mono"
+                        placeholder="https://linkedin.com/in/dr_username"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl dir-ltr text-left font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">إنستغرام (Instagram)</label>
+                      <input
+                        type="url"
+                        value={doctor.socialLinks?.instagram || ''}
+                        onChange={(e) => handleSocialChange('instagram', e.target.value)}
+                        placeholder="https://instagram.com/dr_username"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl dir-ltr text-left font-mono"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">قناة يوتيوب (YouTube)</label>
+                      <input
+                        type="url"
+                        value={doctor.socialLinks?.youtube || ''}
+                        onChange={(e) => handleSocialChange('youtube', e.target.value)}
+                        placeholder="https://youtube.com/@dr_channel"
+                        className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl dir-ltr text-left font-mono"
                       />
                     </div>
                   </div>

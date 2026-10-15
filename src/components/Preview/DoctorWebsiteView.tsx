@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DoctorProfile, PatientTestimonial } from '../../types/doctor';
 import { getTheme, getSectionBgClasses } from '../../utils/theme';
 import { DoctorAvatar } from '../Common/DoctorAvatar';
@@ -62,6 +62,83 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
   const [testimonials, setTestimonials] = useState<PatientTestimonial[]>(doctor.testimonials || []);
 
   const isEn = lang === 'en';
+
+  // Dynamic SEO & OpenGraph & Schema.org injection
+  useEffect(() => {
+    const originalTitle = document.title;
+    const pageTitle = isEn
+      ? (doctor.seo?.metaTitleEn || `${doctor.nameEn || doctor.name} | Medical Clinic`)
+      : (doctor.seo?.metaTitle || `${doctor.name} | ${doctor.title}`);
+    document.title = pageTitle;
+
+    const setMetaTag = (attribute: 'name' | 'property', key: string, content: string) => {
+      let meta = document.querySelector(`meta[${attribute}="${key}"]`);
+      if (!meta) {
+        meta = document.createElement('meta');
+        meta.setAttribute(attribute, key);
+        document.head.appendChild(meta);
+      }
+      meta.setAttribute('content', content);
+    };
+
+    const metaDesc = isEn 
+      ? (doctor.seo?.metaDescriptionEn || doctor.bioEn || doctor.bio)
+      : (doctor.seo?.metaDescription || doctor.bio);
+    if (metaDesc) {
+      setMetaTag('name', 'description', metaDesc);
+      setMetaTag('property', 'og:description', metaDesc);
+      setMetaTag('name', 'twitter:description', metaDesc);
+    }
+
+    setMetaTag('property', 'og:title', pageTitle);
+    setMetaTag('name', 'twitter:title', pageTitle);
+    setMetaTag('property', 'og:type', 'website');
+    setMetaTag('name', 'twitter:card', 'summary_large_image');
+
+    const shareImage = doctor.seo?.ogImage || doctor.avatarUrl;
+    if (shareImage) {
+      setMetaTag('property', 'og:image', shareImage);
+      setMetaTag('name', 'twitter:image', shareImage);
+    }
+
+    if (doctor.seo?.keywords && doctor.seo.keywords.length > 0) {
+      setMetaTag('name', 'keywords', doctor.seo.keywords.join(', '));
+    }
+
+    // Schema.org Physician JSON-LD
+    const scriptId = 'doctor-seo-jsonld';
+    let scriptTag = document.getElementById(scriptId) as HTMLScriptElement | null;
+    if (doctor.seo?.structuredDataEnabled !== false) {
+      if (!scriptTag) {
+        scriptTag = document.createElement('script');
+        scriptTag.id = scriptId;
+        scriptTag.type = 'application/ld+json';
+        document.head.appendChild(scriptTag);
+      }
+      scriptTag.text = JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'Physician',
+        'name': doctor.name,
+        'alternateName': doctor.nameEn || undefined,
+        'image': shareImage || undefined,
+        'description': doctor.bio,
+        'medicalSpecialty': doctor.specialty,
+        'telephone': doctor.clinic?.phone,
+        'address': {
+          '@type': 'PostalAddress',
+          'streetAddress': doctor.clinic?.address,
+          'addressLocality': doctor.clinic?.city,
+          'addressCountry': 'SA'
+        }
+      });
+    }
+
+    return () => {
+      document.title = originalTitle;
+      const jsonLd = document.getElementById(scriptId);
+      if (jsonLd) jsonLd.remove();
+    };
+  }, [doctor, isEn]);
 
   const config = doctor.sectionsConfig || {
     hero: true,

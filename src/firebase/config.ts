@@ -55,6 +55,15 @@ export function getActiveFirebaseConfig(): FirebaseConfigParams {
   };
 }
 
+export function isCustomConfigSaved(): boolean {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY_CUSTOM_FIREBASE);
+    return Boolean(saved && JSON.parse(saved)?.apiKey);
+  } catch {
+    return false;
+  }
+}
+
 let app: FirebaseApp | null = null;
 let dbInstance: Firestore | null = null;
 let authInstance: Auth | null = null;

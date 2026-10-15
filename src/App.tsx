@@ -427,6 +427,7 @@ function MainApp() {
       <AdminLoginModal
         isOpen={isLoginModalOpen}
         onClose={() => setIsLoginModalOpen(false)}
+        onOpenFirebaseModal={() => setIsFirebaseModalOpen(true)}
       />
 
       <NewDoctorModal

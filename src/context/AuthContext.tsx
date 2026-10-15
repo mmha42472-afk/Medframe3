@@ -8,6 +8,8 @@ import {
   completeEmailLinkSignIn, 
   checkIsEmailLinkSignIn,
   signInWithGoogle, 
+  loginWithEmailAndPassword as apiLoginEmailPassword,
+  registerWithEmailAndPassword as apiRegisterEmailPassword,
   activateDemoAdmin, 
   adminSignOut,
   isDemoAdminActive 
@@ -19,6 +21,8 @@ interface AuthContextType {
   isDemoAdmin: boolean;
   loading: boolean;
   error: string | null;
+  loginWithEmailPassword: (email: string, pass: string) => Promise<void>;
+  registerWithEmailPassword: (email: string, pass: string) => Promise<void>;
   sendEmailLink: (email: string) => Promise<void>;
   loginWithGoogle: () => Promise<void>;
   loginAsDemoAdmin: () => void;
@@ -60,6 +64,30 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     return () => unsubscribe();
   }, []);
+
+  const loginWithEmailPassword = async (email: string, pass: string) => {
+    setError(null);
+    try {
+      const admin = await apiLoginEmailPassword(email, pass);
+      setUser(admin);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'تعذر تسجيل الدخول بالبريد وكلمة المرور.';
+      setError(msg);
+      throw err;
+    }
+  };
+
+  const registerWithEmailPassword = async (email: string, pass: string) => {
+    setError(null);
+    try {
+      const admin = await apiRegisterEmailPassword(email, pass);
+      setUser(admin);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'تعذر إنشاء الحساب.';
+      setError(msg);
+      throw err;
+    }
+  };
 
   const sendEmailLink = async (email: string) => {
     setError(null);
@@ -109,6 +137,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         isDemoAdmin: Boolean(user?.isDemo),
         loading,
         error,
+        loginWithEmailPassword,
+        registerWithEmailPassword,
         sendEmailLink,
         loginWithGoogle,
         loginAsDemoAdmin,

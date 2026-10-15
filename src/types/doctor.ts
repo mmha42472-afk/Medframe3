@@ -110,6 +110,11 @@ export interface DoctorSEO {
   metaDescription: string;
   metaDescriptionEn?: string;
   keywords: string[];
+  ogImage?: string;
+  canonicalUrl?: string;
+  indexing?: 'all' | 'noindex' | 'nofollow';
+  structuredDataEnabled?: boolean;
+  author?: string;
 }
 
 export interface CustomSectionItem {

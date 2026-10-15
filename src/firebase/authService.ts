@@ -2,6 +2,8 @@ import {
   sendSignInLinkToEmail, 
   isSignInWithEmailLink, 
   signInWithEmailLink,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
   signInWithPopup,
   GoogleAuthProvider,
   signOut,
@@ -9,7 +11,7 @@ import {
   onAuthStateChanged
 } from 'firebase/auth';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth, db, isFirebaseReady } from './config';
+import { auth, db, isFirebaseReady, isCustomConfigSaved } from './config';
 import { AdminUser } from '../types/doctor';
 
 const BOOTSTRAP_ADMIN_EMAIL = 'mmha42472@gmail.com';
@@ -20,6 +22,71 @@ export interface AuthState {
   user: AdminUser | null;
   loading: boolean;
   error: string | null;
+}
+
+/**
+ * Translates Firebase Auth error codes to user-friendly Arabic explanations
+ */
+export function formatAuthError(error: unknown): string {
+  if (!error) return 'حدث خطأ غير معروف.';
+  const code = (error as { code?: string })?.code || '';
+  const message = (error as { message?: string })?.message || String(error);
+
+  if (!isFirebaseReady) {
+    return 'خدمة Firebase Auth غير متصلة بعد. يمكنك إدخال مفاتيح API الخاصة بك من زر "إعدادات فايربيس"، أو استخدام حساب المشرف التجريبي للمعاينة.';
+  }
+
+  switch (code) {
+    case 'auth/invalid-credential':
+    case 'auth/wrong-password':
+      return 'كلمة المرور أو البريد الإلكتروني غير صحيح. يرجى التحقق وإعادة المحاولة.';
+    case 'auth/user-not-found':
+      return 'لا يوجد حساب مسجل بهذا البريد الإلكتروني. يمكنك إنشاء حساب مسؤول جديد.';
+    case 'auth/email-already-in-use':
+      return 'هذا البريد الإلكتروني مسجل بالفعل. يرجى تسجيل الدخول أو استعادة كلمة المرور.';
+    case 'auth/weak-password':
+      return 'كلمة المرور ضعيفة جداً. يجب أن تتكون من 6 خانات على الأقل.';
+    case 'auth/invalid-email':
+      return 'صيغة البريد الإلكتروني غير صحيحة.';
+    case 'auth/operation-not-allowed':
+      return 'تسجيل الدخول بالبريد وكلمة المرور غير مفعّل في لوحة تحكم Firebase Console. يرجى تفعيله من Firebase Authentication > Sign-in method.';
+    case 'auth/too-many-requests':
+      return 'تم حظر الطلبات مؤقتاً لكثرة المحاولات الخاطئة. يرجى الانتظار دقيقة وإعادة المحاولة.';
+    case 'auth/network-request-failed':
+      return 'فشل الاتصال بالإنترنت أو بخوادم Firebase. يرجى التحقق من اتصالك بالشبكة ومفاتيح API.';
+    default:
+      return message || 'تعذر إتمام عملية تسجيل الدخول.';
+  }
+}
+
+/**
+ * Sign in with Email and Password
+ */
+export async function loginWithEmailAndPassword(email: string, pass: string): Promise<AdminUser> {
+  if (!auth || !isFirebaseReady) {
+    throw new Error('خدمة Firebase غير مهيأة بعد. يرجى إدخال مفاتيح فايربيس أولاً أو استخدام وضع المشرف التجريبي.');
+  }
+  try {
+    const cred = await signInWithEmailAndPassword(auth, email.trim(), pass);
+    return await verifyAndBuildAdminUser(cred.user);
+  } catch (err) {
+    throw new Error(formatAuthError(err));
+  }
+}
+
+/**
+ * Register / Create new Admin account with Email and Password
+ */
+export async function registerWithEmailAndPassword(email: string, pass: string): Promise<AdminUser> {
+  if (!auth || !isFirebaseReady) {
+    throw new Error('خدمة Firebase غير مهيأة بعد. يرجى إدخال مفاتيح فايربيس أولاً أو استخدام وضع المشرف التجريبي.');
+  }
+  try {
+    const cred = await createUserWithEmailAndPassword(auth, email.trim(), pass);
+    return await verifyAndBuildAdminUser(cred.user);
+  } catch (err) {
+    throw new Error(formatAuthError(err));
+  }
 }
 
 /**
