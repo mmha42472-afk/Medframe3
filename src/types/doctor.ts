@@ -82,6 +82,13 @@ export interface DoctorSEO {
   keywords: string[];
 }
 
+export interface CustomDoctorSection {
+  id: string;
+  title: string;
+  body: string;
+  backgroundColor: string;
+}
+
 export interface SectionsVisibility {
   hero: boolean;
   about: boolean;
@@ -123,6 +130,8 @@ export interface DoctorProfile {
   socialLinks: DoctorSocialLinks;
   seo: DoctorSEO;
   sectionsConfig: SectionsVisibility;
+  sectionColors?: Record<string, string>;
+  customSections?: CustomDoctorSection[];
   authorId?: string;
   createdAt: string;
   updatedAt: string;
