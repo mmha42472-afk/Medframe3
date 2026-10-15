@@ -29,32 +29,37 @@ export interface AuthState {
  */
 export function formatAuthError(error: unknown): string {
   if (!error) return 'حدث خطأ غير معروف.';
-  const code = (error as { code?: string })?.code || '';
+  const rawCode = (error as { code?: string })?.code || '';
   const message = (error as { message?: string })?.message || String(error);
+  const codeMatch = message.match(/auth\/[a-z0-9-]+/);
+  const code = rawCode || (codeMatch ? codeMatch[0] : '');
 
   if (!isFirebaseReady) {
     return 'خدمة Firebase Auth غير متصلة بعد. يمكنك إدخال مفاتيح API الخاصة بك من زر "إعدادات فايربيس"، أو استخدام حساب المشرف التجريبي للمعاينة.';
   }
 
   switch (code) {
+    case 'auth/operation-not-allowed':
+      return 'طريقة تسجيل الدخول بالبريد وكلمة المرور معطلة في مشروع Firebase الخاص بك. يلزم تفعيل Email/Password في Firebase Console > Authentication > Sign-in method.';
     case 'auth/invalid-credential':
     case 'auth/wrong-password':
       return 'كلمة المرور أو البريد الإلكتروني غير صحيح. يرجى التحقق وإعادة المحاولة.';
     case 'auth/user-not-found':
-      return 'لا يوجد حساب مسجل بهذا البريد الإلكتروني. يمكنك إنشاء حساب مسؤول جديد.';
+      return 'لا يوجد حساب مسجل بهذا البريد الإلكتروني. اضغط على زر "إنشاء حساب مسؤول جديد" للتسجيل أولاً.';
     case 'auth/email-already-in-use':
-      return 'هذا البريد الإلكتروني مسجل بالفعل. يرجى تسجيل الدخول أو استعادة كلمة المرور.';
+      return 'هذا البريد الإلكتروني مسجل بالفعل. يرجى تسجيل الدخول بدلاً من التسجيل الجديد.';
     case 'auth/weak-password':
-      return 'كلمة المرور ضعيفة جداً. يجب أن تتكون من 6 خانات على الأقل.';
+      return 'كلمة المرور ضعيفة جداً. يجب أن تتكون من 6 خانات أو أحرف على الأقل.';
     case 'auth/invalid-email':
       return 'صيغة البريد الإلكتروني غير صحيحة.';
-    case 'auth/operation-not-allowed':
-      return 'تسجيل الدخول بالبريد وكلمة المرور غير مفعّل في لوحة تحكم Firebase Console. يرجى تفعيله من Firebase Authentication > Sign-in method.';
     case 'auth/too-many-requests':
-      return 'تم حظر الطلبات مؤقتاً لكثرة المحاولات الخاطئة. يرجى الانتظار دقيقة وإعادة المحاولة.';
+      return 'تم حظر الطلبات مؤقتاً لكثرة المحاولات. يرجى الانتظار دقيقة وإعادة المحاولة.';
     case 'auth/network-request-failed':
-      return 'فشل الاتصال بالإنترنت أو بخوادم Firebase. يرجى التحقق من اتصالك بالشبكة ومفاتيح API.';
+      return 'فشل الاتصال بخوادم Firebase. يرجى التحقق من اتصالك بالإنترنت وصحة مفاتيح API.';
     default:
+      if (message.includes('operation-not-allowed')) {
+        return 'طريقة تسجيل الدخول بالبريد وكلمة المرور معطلة في Firebase Console. يلزم تفعيل Email/Password في تبويب Sign-in method.';
+      }
       return message || 'تعذر إتمام عملية تسجيل الدخول.';
   }
 }

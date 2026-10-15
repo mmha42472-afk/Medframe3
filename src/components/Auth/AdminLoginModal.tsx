@@ -17,7 +17,9 @@ import {
   KeyRound,
   Flame,
   Settings,
-  ArrowRight
+  ArrowRight,
+  AlertTriangle,
+  ExternalLink
 } from 'lucide-react';
 
 interface AdminLoginModalProps {
@@ -208,12 +210,46 @@ export const AdminLoginModal: React.FC<AdminLoginModalProps> = ({
           </div>
 
           {/* Errors */}
-          {(localError || error) && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5 text-xs text-rose-800 animate-in fade-in">
-              <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
-              <div className="flex-1 leading-relaxed">{localError || error}</div>
-            </div>
-          )}
+          {(localError || error) && (() => {
+            const errText = localError || error || '';
+            const isOpNotAllowed = errText.includes('operation-not-allowed') || errText.includes('معطلة') || errText.includes('Sign-in method');
+            return (
+              <div className="space-y-2 animate-in fade-in">
+                <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl flex items-start gap-2.5 text-xs text-rose-800">
+                  <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                  <div className="flex-1 leading-relaxed font-medium">{errText}</div>
+                </div>
+
+                {isOpNotAllowed && (
+                  <div className="p-3.5 bg-amber-50 border border-amber-300 rounded-xl space-y-2 text-xs text-amber-900">
+                    <div className="flex items-center gap-2 font-bold text-amber-950">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>حل المشكلة: تفعيل Email/Password في Firebase Console</span>
+                    </div>
+                    <p className="text-[11px] text-amber-800 leading-relaxed">
+                      سبب هذا الخطأ هو أن فايربيس يضع طرق الدخول في حالة معطلة تلقائياً لحماية حسابك، ويلزم تفعيلها مرة واحدة:
+                    </p>
+                    <ol className="list-decimal list-inside space-y-1.5 text-[11px] text-amber-900 bg-white/70 p-2.5 rounded-lg border border-amber-200">
+                      <li>افتح <a href="https://console.firebase.google.com" target="_blank" rel="noopener noreferrer" className="font-bold underline text-blue-700 hover:text-blue-900 inline-flex items-center gap-0.5">Firebase Console <ExternalLink className="w-3 h-3 inline" /></a></li>
+                      <li>اختر مشروعك، ثم اضغط <b>Build &gt; Authentication</b>.</li>
+                      <li>اضغط على تبويب <b>Sign-in method</b>.</li>
+                      <li>اضغط على <b>Email/Password</b>، وفعّل أول خيار (Enable)، ثم اضغط <b>Save</b>.</li>
+                    </ol>
+                    <div className="pt-1 flex items-center justify-between border-t border-amber-200">
+                      <span className="text-[11px] text-amber-800">أو يمكنك المتابعة الآن بالوضع التجريبي:</span>
+                      <button
+                        type="button"
+                        onClick={handleDemoAdmin}
+                        className="px-2.5 py-1 bg-amber-700 hover:bg-amber-800 text-white rounded text-[11px] font-bold transition-colors"
+                      >
+                        دخول كمشرف تجريبي الآن
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Auth Method Navigation Tabs */}
           <div className="flex items-center p-1 bg-slate-100 rounded-xl text-xs font-semibold text-slate-600">
