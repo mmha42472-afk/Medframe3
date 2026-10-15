@@ -165,14 +165,30 @@ VITE_FIREBASE_APP_ID="${config.appId || ''}"`;
         {/* Content Body */}
         <div className="p-6 space-y-5 max-h-[70vh] overflow-y-auto text-right">
           
-          <div className="p-3.5 bg-blue-50/70 rounded-2xl border border-blue-200/80 text-xs text-blue-900 flex items-start gap-3">
-            <Info className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <p className="font-bold">هل لديك مشروع خاص على Firebase وتريد ربطه؟</p>
-              <p className="text-blue-800 leading-relaxed">
-                يمكنك لصق مفاتيح مشروعك هنا، وسيتم حفظها محلياً في متصفحك وتطبيقها على الفور دون الحاجة لإعادة رفع التطبيق. يتم استخراج هذه المفاتيح من 
-                <strong className="mx-1">Project Settings &gt; General &gt; Your apps &gt; Web app</strong>.
-              </p>
+          {/* Verification & Auth Providers Notice */}
+          <div className="p-4 bg-amber-50/90 rounded-2xl border border-amber-300 text-xs text-amber-950 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="font-bold flex items-center gap-1.5 text-amber-900">
+                <ShieldCheck className="w-4 h-4 text-amber-700" />
+                <span>حالة تفعيل تسجيل الدخول (Sign-in Providers) وسبب خطأ auth/operation-not-allowed:</span>
+              </span>
+              <a
+                href={`https://console.firebase.google.com/project/${config.projectId || 'gen-lang-client-0271207340'}/authentication/providers`}
+                target="_blank"
+                rel="noreferrer"
+                className="px-2.5 py-1 bg-amber-800 hover:bg-amber-900 text-white rounded-lg text-[11px] font-bold inline-flex items-center gap-1 transition-colors"
+              >
+                <span>فتح Sign-in method للمشروع</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+            <p className="text-[11px] text-amber-900 leading-relaxed">
+              إذا واجهت رسالة <b>auth/operation-not-allowed</b>، فذلك لأن فايربيس يتطلب تفعيل موفّر <b>Email/Password</b> يدوياً لمرة واحدة من صفحة 
+              <b> Authentication &gt; Sign-in method</b> لمشروعك <code className="bg-amber-100 px-1 py-0.5 rounded font-mono font-bold text-amber-950">{config.projectId}</code>.
+            </p>
+            <div className="flex items-center gap-2 pt-1 border-t border-amber-200/70 text-[11px] text-emerald-800 font-semibold">
+              <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <span>مفاتيح الـ SDK المهيأة في التطبيق متطابقة تماماً مع ملف <code className="font-mono text-emerald-950">firebase-applet-config.json</code>.</span>
             </div>
           </div>
 

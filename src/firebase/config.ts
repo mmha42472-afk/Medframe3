@@ -12,15 +12,17 @@ export interface FirebaseConfigParams {
   appId?: string;
 }
 
-// Built-in Provisioned Firebase Applet Configuration defaults
+import firebaseAppletConfig from '../../firebase-applet-config.json';
+
+// Built-in Provisioned Firebase Applet Configuration defaults directly synced from firebase-applet-config.json
 export const DEFAULT_FIREBASE_CONFIG: FirebaseConfigParams = {
-  projectId: "gen-lang-client-0271207340",
-  appId: "1:143050958557:web:877901df18746e5a345d34",
-  apiKey: "AIzaSyCIGuxGnGxK-vzSCE9W5rUr5pq8hGSwEuU",
-  authDomain: "gen-lang-client-0271207340.firebaseapp.com",
-  firestoreDatabaseId: "ai-studio-98b8adb8-741c-4553-a4f5-5a1ce211c9c0",
-  storageBucket: "gen-lang-client-0271207340.firebasestorage.app",
-  messagingSenderId: "143050958557",
+  projectId: firebaseAppletConfig.projectId,
+  appId: firebaseAppletConfig.appId,
+  apiKey: firebaseAppletConfig.apiKey,
+  authDomain: firebaseAppletConfig.authDomain,
+  firestoreDatabaseId: firebaseAppletConfig.firestoreDatabaseId || "ai-studio-98b8adb8-741c-4553-a4f5-5a1ce211c9c0",
+  storageBucket: firebaseAppletConfig.storageBucket,
+  messagingSenderId: firebaseAppletConfig.messagingSenderId,
 };
 
 export const STORAGE_KEY_CUSTOM_FIREBASE = 'medframe_custom_firebase_config_v2';
