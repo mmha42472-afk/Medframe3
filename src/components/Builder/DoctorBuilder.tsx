@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { 
   DoctorProfile, 
+  CustomDoctorSection, 
   ThemeColor, 
   DoctorStatus,
   MedicalQualification,
@@ -12,6 +13,7 @@ import {
 } from '../../types/doctor';
 import { THEME_PALETTES, getTheme } from '../../utils/theme';
 import { DoctorWebsiteView } from '../Preview/DoctorWebsiteView';
+import { firebaseConfig, isFirebaseReady } from '../../firebase/config';
 import { 
   ArrowRight, 
   Save, 
@@ -35,7 +37,11 @@ import {
   FileText,
   HelpCircle,
   Share2,
-  Search
+  Search,
+  Settings2,
+  Cloud,
+  X,
+  ImagePlus
 } from 'lucide-react';
 
 interface DoctorBuilderProps {
@@ -68,11 +74,33 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
   const [showLivePreview, setShowLivePreview] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [showFirebaseSettings, setShowFirebaseSettings] = useState(false);
+  const [photoError, setPhotoError] = useState('');
+  const [firebaseDraft, setFirebaseDraft] = useState({ ...firebaseConfig });
 
   // Subspecialty tag input helper
   const [subspecialtyInput, setSubspecialtyInput] = useState('');
 
   const currentTheme = getTheme(doctor.themeColor);
+
+  const downloadFirebaseEnv = () => {
+    const rows = [
+      ['VITE_FIREBASE_API_KEY', firebaseDraft.apiKey],
+      ['VITE_FIREBASE_AUTH_DOMAIN', firebaseDraft.authDomain],
+      ['VITE_FIREBASE_PROJECT_ID', firebaseDraft.projectId],
+      ['VITE_FIREBASE_STORAGE_BUCKET', firebaseDraft.storageBucket],
+      ['VITE_FIREBASE_MESSAGING_SENDER_ID', firebaseDraft.messagingSenderId],
+      ['VITE_FIREBASE_APP_ID', firebaseDraft.appId],
+      ['VITE_FIREBASE_FIRESTORE_DATABASE_ID', firebaseDraft.firestoreDatabaseId]
+    ];
+    const envText = rows.map(([key, value]) => `${key}="${String(value || '').replace(/"/g, '\\"')}"`).join('\n') + '\n';
+    const url = URL.createObjectURL(new Blob([envText], { type: 'text/plain;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = '.env';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   const handleFieldChange = <K extends keyof DoctorProfile>(field: K, value: DoctorProfile[K]) => {
     setDoctor(prev => ({ ...prev, [field]: value }));
@@ -106,6 +134,23 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
         [field]: value
       }
     }));
+  };
+
+  const handleSectionColorChange = (sectionKey: string, color: string) => {
+    setDoctor(prev => ({ ...prev, sectionColors: { ...prev.sectionColors, [sectionKey]: color } }));
+  };
+
+  const handleAddCustomSection = () => {
+    const section: CustomDoctorSection = { id: `custom-${Date.now()}`, title: 'قسم جديد', body: 'أضف نبذة مفيدة للمرضى هنا.', backgroundColor: '#f0fdfa' };
+    setDoctor(prev => ({ ...prev, customSections: [...(prev.customSections || []), section] }));
+  };
+
+  const handleUpdateCustomSection = (id: string, field: keyof CustomDoctorSection, value: string) => {
+    setDoctor(prev => ({ ...prev, customSections: (prev.customSections || []).map(section => section.id === id ? { ...section, [field]: value } : section) }));
+  };
+
+  const handleRemoveCustomSection = (id: string) => {
+    setDoctor(prev => ({ ...prev, customSections: (prev.customSections || []).filter(section => section.id !== id) }));
   };
 
   const handleSectionToggle = (sectionKey: keyof DoctorProfile['sectionsConfig']) => {
@@ -297,7 +342,7 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
   };
 
   return (
-    <div className="space-y-4" dir="rtl">
+    <div className="space-y-4 studio-enter" dir="rtl">
       
       {/* Builder Top Bar */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
@@ -361,6 +406,10 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
           >
             <Layers className="w-3.5 h-3.5" />
             <span>{showLivePreview ? 'إخفاء المعاينة' : 'إظهار المعاينة الحية'}</span>
+          </button>
+
+          <button type="button" onClick={() => setShowFirebaseSettings(true)} className="px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 border border-slate-200 rounded-xl transition-colors flex items-center gap-1.5" title="إعدادات Firebase">
+            <Settings2 className="w-3.5 h-3.5 text-slate-500" /><span>إعدادات المنصة</span>
           </button>
 
           {/* Direct Public Page */}
@@ -725,8 +774,36 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                     placeholder="اتركه فارغاً ليتم إنشاء مونوغرام طبي أنيق تلقائياً"
                     className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-700 outline-none dir-ltr text-left"
                   />
+                  <label className="mt-2 flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-teal-300 bg-teal-50/60 px-4 py-3 text-xs font-bold text-teal-900 transition hover:bg-teal-50">
+                    <ImagePlus className="h-4 w-4" />
+                    <span>رفع صورة من الجهاز</span>
+                    <input type="file" accept="image/png,image/jpeg,image/webp" className="sr-only" onChange={(event) => {
+                      const file = event.target.files?.[0];
+                      if (!file) return;
+                      setPhotoError('');
+                      if (file.size > 8 * 1024 * 1024) { setPhotoError('حجم الصورة يتجاوز 8 ميغابايت. اختر صورة أصغر.'); event.currentTarget.value = ''; return; }
+                      const image = new Image();
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        image.onload = () => {
+                          const scale = Math.min(1, 900 / Math.max(image.width, image.height));
+                          const canvas = document.createElement('canvas');
+                          canvas.width = Math.max(1, Math.round(image.width * scale));
+                          canvas.height = Math.max(1, Math.round(image.height * scale));
+                          const context = canvas.getContext('2d');
+                          if (!context) { setPhotoError('تعذر معالجة الصورة. حاول بصيغة أخرى.'); return; }
+                          context.drawImage(image, 0, 0, canvas.width, canvas.height);
+                          handleFieldChange('avatarUrl', canvas.toDataURL('image/jpeg', 0.82));
+                        };
+                        image.onerror = () => setPhotoError('تعذر قراءة الصورة. جرّب ملف PNG أو JPG أو WebP.');
+                        image.src = String(reader.result);
+                      };
+                      reader.readAsDataURL(file);
+                    }} />
+                  </label>
+                  {photoError && <p role="alert" className="text-[11px] text-rose-600">{photoError}</p>}
                   <p className="text-[11px] text-slate-600">
-                    في حال عدم توفر رابط صورة، ينشئ النظام شارة مونوغرام طبية راقية مع الأحرف الأولى للطبيب.
+                    تُضغط الصورة محلياً قبل حفظها لتقليل حجمها. يمكنك أيضاً لصق رابط صورة عام أعلاه.
                   </p>
                 </div>
 
@@ -1295,8 +1372,8 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                   ].map(({ key, label }) => {
                     const isVisible = doctor.sectionsConfig?.[key as keyof DoctorProfile['sectionsConfig']] !== false;
                     return (
-                      <div key={key} className="py-2.5 flex items-center justify-between text-xs">
-                        <span className="font-semibold text-slate-800">{label}</span>
+                      <div key={key} className="py-2.5 grid grid-cols-[1fr_auto] items-center gap-2 text-xs">
+                        <div className="space-y-1"><span className="block font-semibold text-slate-800">{label}</span><span className="flex items-center gap-2 text-[10px] text-slate-500">لون خلفية القسم<input type="color" aria-label={`لون خلفية ${label}`} value={doctor.sectionColors?.[key] || (key === 'clinic' || key === 'articles' || key === 'testimonials' ? '#f8fafc' : '#ffffff')} onChange={(event) => handleSectionColorChange(key, event.target.value)} className="h-6 w-8 cursor-pointer rounded border border-slate-200 bg-white p-0.5" /></span></div>
                         <button
                           type="button"
                           onClick={() => handleSectionToggle(key as keyof DoctorProfile['sectionsConfig'])}
@@ -1309,6 +1386,14 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                       </div>
                     );
                   })}
+                </div>
+
+                <div className="border-t border-slate-100 pt-4 space-y-3">
+                  <div className="flex items-center justify-between gap-3"><div><h4 className="text-xs font-bold text-slate-900">أقسام مخصصة</h4><p className="text-[11px] text-slate-500">أضف أقساماً حرة مثل التأمينات أو تجهيزات العيادة.</p></div><button type="button" onClick={handleAddCustomSection} className="inline-flex items-center gap-1 rounded-xl bg-teal-800 px-3 py-2 text-xs font-bold text-white hover:bg-teal-900"><Plus className="h-3.5 w-3.5" />إضافة قسم</button></div>
+                  {(doctor.customSections || []).map((section) => <div key={section.id} className="space-y-2 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                    <div className="flex items-center gap-2"><input value={section.title} onChange={(event) => handleUpdateCustomSection(section.id, 'title', event.target.value)} aria-label="عنوان القسم المخصص" className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold" placeholder="عنوان القسم" /><input type="color" value={section.backgroundColor} onChange={(event) => handleUpdateCustomSection(section.id, 'backgroundColor', event.target.value)} aria-label="لون خلفية القسم المخصص" className="h-9 w-10 cursor-pointer rounded-lg border border-slate-200 bg-white p-1" /><button type="button" onClick={() => handleRemoveCustomSection(section.id)} aria-label="حذف القسم المخصص" className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600"><Trash2 className="h-4 w-4" /></button></div>
+                    <textarea rows={3} value={section.body} onChange={(event) => handleUpdateCustomSection(section.id, 'body', event.target.value)} aria-label="محتوى القسم المخصص" className="w-full rounded-lg border border-slate-200 bg-white p-3 text-xs leading-6" placeholder="اكتب المحتوى هنا..." />
+                  </div>)}
                 </div>
               </div>
             )}
@@ -1358,6 +1443,43 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
 
           </div>
         )}
+
+      {showFirebaseSettings && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/55 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-labelledby="firebase-settings-title" onMouseDown={(event) => { if (event.target === event.currentTarget) setShowFirebaseSettings(false); }}>
+          <div className="w-full max-w-xl overflow-hidden rounded-3xl border border-white/60 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-l from-teal-50 to-white px-6 py-5">
+              <div className="flex items-center gap-3">
+                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-teal-800 text-white shadow-lg shadow-teal-900/15"><Cloud className="h-5 w-5" /></span>
+                <div><h3 id="firebase-settings-title" className="font-bold text-slate-900">إعدادات Firebase والمنصة</h3><p className="mt-0.5 text-xs text-slate-500">حالة الربط ومفاتيح إعداد المشروع</p></div>
+              </div>
+              <button type="button" onClick={() => setShowFirebaseSettings(false)} className="rounded-xl p-2 text-slate-500 hover:bg-slate-100" aria-label="إغلاق"><X className="h-5 w-5" /></button>
+            </div>
+            <div className="space-y-5 p-6">
+              <div className={`flex items-center justify-between rounded-2xl border p-4 ${isFirebaseReady ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
+                <div><p className="text-sm font-bold text-slate-900">{isFirebaseReady ? 'Firebase مهيأ في هذا الإصدار' : 'Firebase غير مهيأ'}</p><p className="mt-1 text-xs text-slate-600">{isFirebaseReady ? `المشروع: ${firebaseConfig.projectId}` : 'أضف بيانات مشروعك في متغيرات البيئة ثم أعد البناء.'}</p></div>
+                <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${isFirebaseReady ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{isFirebaseReady ? 'متصل' : 'يحتاج إعداداً'}</span>
+              </div>
+              <div className="space-y-3">
+                <div><p className="text-xs font-bold text-slate-800">بيانات مشروع Firebase</p><p className="mt-1 text-[11px] text-slate-500">أدخل بيانات تطبيق الويب. تُستخدم لإنشاء ملف إعداد محلي؛ لا تُحفظ على الخادم.</p></div>
+                <div className="grid gap-2 sm:grid-cols-2">{([
+                  ['apiKey', 'VITE_FIREBASE_API_KEY'],
+                  ['projectId', 'VITE_FIREBASE_PROJECT_ID'],
+                  ['authDomain', 'VITE_FIREBASE_AUTH_DOMAIN'],
+                  ['appId', 'VITE_FIREBASE_APP_ID'],
+                  ['storageBucket', 'VITE_FIREBASE_STORAGE_BUCKET'],
+                  ['messagingSenderId', 'VITE_FIREBASE_MESSAGING_SENDER_ID'],
+                  ['firestoreDatabaseId', 'VITE_FIREBASE_FIRESTORE_DATABASE_ID']
+                ] as const).map(([field, label]) => <label key={field} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"><span className="block text-[10px] font-bold text-slate-500">{label}</span><input type={field === 'apiKey' ? 'password' : 'text'} autoComplete="off" spellCheck={false} value={firebaseDraft[field] || ''} onChange={(event) => setFirebaseDraft(prev => ({ ...prev, [field]: event.target.value }))} className="mt-1 w-full bg-transparent font-mono text-[11px] text-slate-800 outline-none" placeholder="أدخل القيمة" /></label>)}</div>
+                <button type="button" onClick={downloadFirebaseEnv} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-teal-800 px-4 py-3 text-xs font-bold text-white hover:bg-teal-900"><Cloud className="h-4 w-4" />تنزيل ملف .env للإعدادات</button>
+              </div>
+              <div className="rounded-2xl bg-slate-900 p-4 text-white">
+                <p className="text-xs font-bold">طريقة الربط</p>
+                <p className="mt-1 text-xs leading-6 text-slate-300">أدخل القيم في ملف <code className="rounded bg-white/10 px-1.5 py-0.5 text-teal-200">.env</code> أو إعدادات أسرار النشر باسماء المتغيرات أعلاه، ثم أعد بناء التطبيق. لا تضع مفاتيح حساب الخدمة أو مفاتيح Admin هنا؛ مفاتيح Firebase للعميل ليست بديلاً عن قواعد Firestore الآمنة.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       </div>
 

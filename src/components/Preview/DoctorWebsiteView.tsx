@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { DoctorProfile } from '../../types/doctor';
 import { getTheme } from '../../utils/theme';
 import { DoctorAvatar } from '../Common/DoctorAvatar';
@@ -22,8 +22,16 @@ import {
   HelpCircle,
   ExternalLink,
   Check,
-  Stethoscope
+  Stethoscope,
+  Languages
 } from 'lucide-react';
+
+declare global {
+  interface Window {
+    google?: { translate?: { TranslateElement: new (options: { pageLanguage: string; includedLanguages: string; autoDisplay: boolean; }, elementId: string) => unknown } };
+    googleTranslateElementInit?: () => void;
+  }
+}
 
 interface DoctorWebsiteViewProps {
   doctor: DoctorProfile;
@@ -43,6 +51,53 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
   const [selectedArticle, setSelectedArticle] = useState<typeof doctor.articles[0] | null>(null);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [siteLanguage, setSiteLanguage] = useState<'ar' | 'en'>(() => {
+    if (typeof navigator === 'undefined') return 'ar';
+    return navigator.languages?.some(language => language.toLowerCase().startsWith('ar')) || navigator.language?.toLowerCase().startsWith('ar') ? 'ar' : 'en';
+  });
+
+  useEffect(() => {
+    if (isPreviewMode) return;
+    const initializeTranslator = () => {
+      const TranslateElement = window.google?.translate?.TranslateElement;
+      if (TranslateElement && document.getElementById('medframe-translate')?.hasChildNodes() === false) {
+        new TranslateElement({ pageLanguage: 'ar', includedLanguages: 'ar,en', autoDisplay: false }, 'medframe-translate');
+      }
+    };
+    window.googleTranslateElementInit = initializeTranslator;
+    if (!document.querySelector('script[data-medframe-translate]')) {
+      const script = document.createElement('script');
+      script.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+      script.async = true;
+      script.dataset.medframeTranslate = 'true';
+      document.head.appendChild(script);
+    } else {
+      initializeTranslator();
+    }
+    let attempts = 0;
+    const timer = window.setInterval(() => {
+      attempts += 1;
+      const selector = document.querySelector<HTMLSelectElement>('.goog-te-combo');
+      if (selector) {
+        selector.value = siteLanguage === 'en' ? 'en' : 'ar';
+        selector.dispatchEvent(new Event('change', { bubbles: true }));
+        window.clearInterval(timer);
+      } else if (attempts > 20) {
+        window.clearInterval(timer);
+      }
+    }, 250);
+    return () => window.clearInterval(timer);
+  }, [isPreviewMode, siteLanguage]);
+
+  const changeSiteLanguage = (language: 'ar' | 'en') => {
+    setSiteLanguage(language);
+    document.documentElement.lang = language;
+    const selector = document.querySelector<HTMLSelectElement>('.goog-te-combo');
+    if (selector) {
+      selector.value = language;
+      selector.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  };
 
   const config = doctor.sectionsConfig || {
     hero: true,
@@ -66,7 +121,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-teal-500 selection:text-white" dir="rtl">
+    <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-teal-500 selection:text-white" dir={siteLanguage === 'ar' ? 'rtl' : 'ltr'}>
       
       {/* Admin Preview Toolbar if opened from builder */}
       {isPreviewMode && (
@@ -121,6 +176,11 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
 
           {/* Quick Actions */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {!isPreviewMode && <button type="button" onClick={() => changeSiteLanguage(siteLanguage === 'ar' ? 'en' : 'ar')} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50" aria-label={siteLanguage === 'ar' ? 'Translate website to English' : 'عرض الموقع بالعربية'}>
+              <Languages className="h-4 w-4" /><span>{siteLanguage === 'ar' ? 'English' : 'العربية'}</span>
+            </button>}
+            {!isPreviewMode && <div id="medframe-translate" className="sr-only" aria-hidden="true" />}
+
             <button
               onClick={handleCopyLink}
               className="p-2 sm:px-3 sm:py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-1.5"
@@ -150,9 +210,11 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
         </div>
       </header>
 
+      {siteLanguage === 'en' && <div role="note" className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs text-amber-900">Machine translation can be inaccurate. Please confirm medical advice and treatment details with the clinic.</div>}
+
       {/* Hero Section */}
       {config.hero && (
-        <section className="relative overflow-hidden bg-white border-b border-slate-200/80 pt-10 pb-12 lg:pt-16 lg:pb-20">
+        <section className="relative overflow-hidden bg-white border-b border-slate-200/80 pt-10 pb-12 lg:pt-16 lg:pb-20" style={{ backgroundColor: doctor.sectionColors?.hero || undefined }}>
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
@@ -296,7 +358,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
 
       {/* About & Biography */}
       {config.about && (
-        <section className="py-14 bg-white border-b border-slate-200/80">
+        <section className="py-14 bg-white border-b border-slate-200/80" style={{ backgroundColor: doctor.sectionColors?.about || undefined }}>
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <div className="max-w-3xl space-y-4">
               <span className="text-xs font-bold uppercase tracking-wider text-teal-800">
@@ -315,7 +377,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
 
       {/* Qualifications & Career Experience */}
       {(config.qualifications || config.experience) && (
-        <section className="py-14 bg-slate-50 border-b border-slate-200/80">
+        <section className="py-14 bg-slate-50 border-b border-slate-200/80" style={{ backgroundColor: doctor.sectionColors?.qualifications || undefined }}>
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
@@ -375,7 +437,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
 
       {/* Medical Services */}
       {config.services && (
-        <section className="py-14 bg-white border-b border-slate-200/80">
+        <section className="py-14 bg-white border-b border-slate-200/80" style={{ backgroundColor: doctor.sectionColors?.services || undefined }}>
           <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-8">
             
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -444,7 +506,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
 
       {/* Clinic Details & Schedule */}
       {config.clinic && (
-        <section id="clinic-schedule" className="py-14 bg-slate-50 border-b border-slate-200/80">
+        <section id="clinic-schedule" className="py-14 bg-slate-50 border-b border-slate-200/80" style={{ backgroundColor: doctor.sectionColors?.clinic || undefined }}>
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -536,7 +598,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
 
       {/* Health Articles & Patient Education */}
       {config.articles && doctor.articles?.length > 0 && (
-        <section className="py-14 bg-white border-b border-slate-200/80">
+        <section className="py-14 bg-white border-b border-slate-200/80" style={{ backgroundColor: doctor.sectionColors?.articles || undefined }}>
           <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-6">
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-teal-800">التثقيف الطبي</span>
@@ -577,7 +639,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
 
       {/* Patient FAQs */}
       {config.faqs && doctor.faqs?.length > 0 && (
-        <section className="py-14 bg-slate-50 border-b border-slate-200/80">
+        <section className="py-14 bg-slate-50 border-b border-slate-200/80" style={{ backgroundColor: doctor.sectionColors?.faqs || undefined }}>
           <div className="max-w-4xl mx-auto px-4 sm:px-6 space-y-6">
             <div className="text-center space-y-1">
               <span className="text-xs font-bold uppercase tracking-wider text-teal-800">إجابات وتوضيحات</span>
@@ -614,7 +676,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
 
       {/* Testimonials */}
       {config.testimonials && doctor.testimonials?.length > 0 && (
-        <section className="py-14 bg-white border-b border-slate-200/80">
+        <section className="py-14 bg-white border-b border-slate-200/80" style={{ backgroundColor: doctor.sectionColors?.testimonials || undefined }}>
           <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-6">
             <div className="text-center space-y-1">
               <span className="text-xs font-bold uppercase tracking-wider text-teal-800">تجارب حقيقية</span>
@@ -650,7 +712,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
 
       {/* Contact Section */}
       {config.contact && (
-        <section className="py-12 bg-slate-900 text-white">
+        <section className="py-12 bg-slate-900 text-white" style={{ backgroundColor: doctor.sectionColors?.contact || undefined }}>
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <div className="flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-right">
               <div>
@@ -687,6 +749,17 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
           </div>
         </section>
       )}
+
+      {(doctor.customSections || []).map(section => (
+        <section key={section.id} className="border-b border-slate-200/80 py-14" style={{ backgroundColor: section.backgroundColor || '#ffffff' }}>
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <div className="mx-auto max-w-3xl space-y-4 text-right">
+              <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">{section.title}</h2>
+              <p className="whitespace-pre-line text-sm leading-8 text-slate-700">{section.body}</p>
+            </div>
+          </div>
+        </section>
+      ))}
 
       {/* Article Reader Modal */}
       {selectedArticle && (
