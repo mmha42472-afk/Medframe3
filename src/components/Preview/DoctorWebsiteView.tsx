@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { DoctorProfile } from '../../types/doctor';
 import { getTheme } from '../../utils/theme';
 import { DoctorAvatar } from '../Common/DoctorAvatar';
@@ -22,8 +22,16 @@ import {
   HelpCircle,
   ExternalLink,
   Check,
-  Stethoscope
+  Stethoscope,
+  Languages
 } from 'lucide-react';
+
+declare global {
+  interface Window {
+    google?: { translate?: { TranslateElement: new (options: { pageLanguage: string; includedLanguages: string; autoDisplay: boolean; }, elementId: string) => unknown } };
+    googleTranslateElementInit?: () => void;
+  }
+}
 
 interface DoctorWebsiteViewProps {
   doctor: DoctorProfile;
@@ -43,6 +51,53 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
   const [selectedArticle, setSelectedArticle] = useState<typeof doctor.articles[0] | null>(null);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+  const [siteLanguage, setSiteLanguage] = useState<'ar' | 'en'>(() => {
+    if (typeof navigator === 'undefined') return 'ar';
+    return navigator.languages?.some(language => language.toLowerCase().startsWith('ar')) || navigator.language?.toLowerCase().startsWith('ar') ? 'ar' : 'en';
+  });
+
+  useEffect(() => {
+    if (isPreviewMode) return;
+    const initializeTranslator = () => {
+      const TranslateElement = window.google?.translate?.TranslateElement;
+      if (TranslateElement && document.getElementById('medframe-translate')) {
+        new TranslateElement({ pageLanguage: 'ar', includedLanguages: 'ar,en', autoDisplay: false }, 'medframe-translate');
+      }
+    };
+    window.googleTranslateElementInit = initializeTranslator;
+    if (!document.querySelector('script[data-medframe-translate]')) {
+      const script = document.createElement('script');
+      script.src = 'https://translate.google.com/translate_a/element.js?cb=googleTranslateElementInit';
+      script.async = true;
+      script.dataset.medframeTranslate = 'true';
+      document.head.appendChild(script);
+    } else {
+      initializeTranslator();
+    }
+    let attempts = 0;
+    const timer = window.setInterval(() => {
+      attempts += 1;
+      const selector = document.querySelector<HTMLSelectElement>('.goog-te-combo');
+      if (selector) {
+        selector.value = siteLanguage === 'en' ? 'en' : 'ar';
+        selector.dispatchEvent(new Event('change', { bubbles: true }));
+        window.clearInterval(timer);
+      } else if (attempts > 20) {
+        window.clearInterval(timer);
+      }
+    }, 250);
+    return () => window.clearInterval(timer);
+  }, [isPreviewMode]);
+
+  const changeSiteLanguage = (language: 'ar' | 'en') => {
+    setSiteLanguage(language);
+    document.documentElement.lang = language;
+    const selector = document.querySelector<HTMLSelectElement>('.goog-te-combo');
+    if (selector) {
+      selector.value = language;
+      selector.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  };
 
   const config = doctor.sectionsConfig || {
     hero: true,
@@ -66,7 +121,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-teal-500 selection:text-white" dir="rtl">
+    <div className="min-h-screen bg-slate-50 text-slate-900 selection:bg-teal-500 selection:text-white" dir={siteLanguage === 'ar' ? 'rtl' : 'ltr'}>
       
       {/* Admin Preview Toolbar if opened from builder */}
       {isPreviewMode && (
@@ -121,6 +176,11 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
 
           {/* Quick Actions */}
           <div className="flex items-center gap-2 sm:gap-3">
+            {!isPreviewMode && <button type="button" onClick={() => changeSiteLanguage(siteLanguage === 'ar' ? 'en' : 'ar')} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-2.5 py-2 text-xs font-bold text-slate-700 hover:bg-slate-50" aria-label={siteLanguage === 'ar' ? 'Translate website to English' : 'عرض الموقع بالعربية'}>
+              <Languages className="h-4 w-4" /><span>{siteLanguage === 'ar' ? 'English' : 'العربية'}</span>
+            </button>}
+            {!isPreviewMode && <div id="medframe-translate" className="sr-only" aria-hidden="true" />}
+
             <button
               onClick={handleCopyLink}
               className="p-2 sm:px-3 sm:py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-1.5"
