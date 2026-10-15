@@ -60,7 +60,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
     if (isPreviewMode) return;
     const initializeTranslator = () => {
       const TranslateElement = window.google?.translate?.TranslateElement;
-      if (TranslateElement && document.getElementById('medframe-translate')) {
+      if (TranslateElement && document.getElementById('medframe-translate')?.hasChildNodes() === false) {
         new TranslateElement({ pageLanguage: 'ar', includedLanguages: 'ar,en', autoDisplay: false }, 'medframe-translate');
       }
     };
@@ -87,7 +87,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
       }
     }, 250);
     return () => window.clearInterval(timer);
-  }, [isPreviewMode]);
+  }, [isPreviewMode, siteLanguage]);
 
   const changeSiteLanguage = (language: 'ar' | 'en') => {
     setSiteLanguage(language);
@@ -209,6 +209,8 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
 
         </div>
       </header>
+
+      {siteLanguage === 'en' && <div role="note" className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs text-amber-900">Machine translation can be inaccurate. Please confirm medical advice and treatment details with the clinic.</div>}
 
       {/* Hero Section */}
       {config.hero && (
