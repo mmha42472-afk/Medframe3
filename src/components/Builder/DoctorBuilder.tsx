@@ -304,7 +304,7 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
   };
 
   return (
-    <div className="space-y-4" dir="rtl">
+    <div className="space-y-4 studio-enter" dir="rtl">
       
       {/* Builder Top Bar */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
