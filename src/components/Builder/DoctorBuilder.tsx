@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { 
   DoctorProfile, 
+  CustomDoctorSection, 
   ThemeColor, 
   DoctorStatus,
   MedicalQualification,
@@ -113,6 +114,23 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
         [field]: value
       }
     }));
+  };
+
+  const handleSectionColorChange = (sectionKey: string, color: string) => {
+    setDoctor(prev => ({ ...prev, sectionColors: { ...prev.sectionColors, [sectionKey]: color } }));
+  };
+
+  const handleAddCustomSection = () => {
+    const section: CustomDoctorSection = { id: `custom-${Date.now()}`, title: 'قسم جديد', body: 'أضف نبذة مفيدة للمرضى هنا.', backgroundColor: '#f0fdfa' };
+    setDoctor(prev => ({ ...prev, customSections: [...(prev.customSections || []), section] }));
+  };
+
+  const handleUpdateCustomSection = (id: string, field: keyof CustomDoctorSection, value: string) => {
+    setDoctor(prev => ({ ...prev, customSections: (prev.customSections || []).map(section => section.id === id ? { ...section, [field]: value } : section) }));
+  };
+
+  const handleRemoveCustomSection = (id: string) => {
+    setDoctor(prev => ({ ...prev, customSections: (prev.customSections || []).filter(section => section.id !== id) }));
   };
 
   const handleSectionToggle = (sectionKey: keyof DoctorProfile['sectionsConfig']) => {
@@ -1334,8 +1352,8 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                   ].map(({ key, label }) => {
                     const isVisible = doctor.sectionsConfig?.[key as keyof DoctorProfile['sectionsConfig']] !== false;
                     return (
-                      <div key={key} className="py-2.5 flex items-center justify-between text-xs">
-                        <span className="font-semibold text-slate-800">{label}</span>
+                      <div key={key} className="py-2.5 grid grid-cols-[1fr_auto] items-center gap-2 text-xs">
+                        <div className="space-y-1"><span className="block font-semibold text-slate-800">{label}</span><span className="flex items-center gap-2 text-[10px] text-slate-500">لون خلفية القسم<input type="color" aria-label={`لون خلفية ${label}`} value={doctor.sectionColors?.[key] || (key === 'clinic' || key === 'articles' || key === 'testimonials' ? '#f8fafc' : '#ffffff')} onChange={(event) => handleSectionColorChange(key, event.target.value)} className="h-6 w-8 cursor-pointer rounded border border-slate-200 bg-white p-0.5" /></span></div>
                         <button
                           type="button"
                           onClick={() => handleSectionToggle(key as keyof DoctorProfile['sectionsConfig'])}
@@ -1348,6 +1366,14 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                       </div>
                     );
                   })}
+                </div>
+
+                <div className="border-t border-slate-100 pt-4 space-y-3">
+                  <div className="flex items-center justify-between gap-3"><div><h4 className="text-xs font-bold text-slate-900">أقسام مخصصة</h4><p className="text-[11px] text-slate-500">أضف أقساماً حرة مثل التأمينات أو تجهيزات العيادة.</p></div><button type="button" onClick={handleAddCustomSection} className="inline-flex items-center gap-1 rounded-xl bg-teal-800 px-3 py-2 text-xs font-bold text-white hover:bg-teal-900"><Plus className="h-3.5 w-3.5" />إضافة قسم</button></div>
+                  {(doctor.customSections || []).map((section) => <div key={section.id} className="space-y-2 rounded-2xl border border-slate-200 bg-slate-50 p-3">
+                    <div className="flex items-center gap-2"><input value={section.title} onChange={(event) => handleUpdateCustomSection(section.id, 'title', event.target.value)} aria-label="عنوان القسم المخصص" className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-bold" placeholder="عنوان القسم" /><input type="color" value={section.backgroundColor} onChange={(event) => handleUpdateCustomSection(section.id, 'backgroundColor', event.target.value)} aria-label="لون خلفية القسم المخصص" className="h-9 w-10 cursor-pointer rounded-lg border border-slate-200 bg-white p-1" /><button type="button" onClick={() => handleRemoveCustomSection(section.id)} aria-label="حذف القسم المخصص" className="rounded-lg p-2 text-slate-400 hover:bg-rose-50 hover:text-rose-600"><Trash2 className="h-4 w-4" /></button></div>
+                    <textarea rows={3} value={section.body} onChange={(event) => handleUpdateCustomSection(section.id, 'body', event.target.value)} aria-label="محتوى القسم المخصص" className="w-full rounded-lg border border-slate-200 bg-white p-3 text-xs leading-6" placeholder="اكتب المحتوى هنا..." />
+                  </div>)}
                 </div>
               </div>
             )}
