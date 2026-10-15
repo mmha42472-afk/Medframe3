@@ -17,7 +17,6 @@ import {
   exportDoctorsJSON,
   importDoctorsJSON
 } from './services/doctorService';
-import { testFirestoreConnection } from './firebase/config';
 import { TopNavbar } from './components/Navigation/TopNavbar';
 import { AdminDashboard } from './components/Dashboard/AdminDashboard';
 import { DoctorBuilder } from './components/Builder/DoctorBuilder';
