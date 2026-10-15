@@ -152,7 +152,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
 
       {/* Hero Section */}
       {config.hero && (
-        <section className="relative overflow-hidden bg-white border-b border-slate-200/80 pt-10 pb-12 lg:pt-16 lg:pb-20">
+        <section className="relative overflow-hidden bg-white border-b border-slate-200/80 pt-10 pb-12 lg:pt-16 lg:pb-20" style={{ backgroundColor: doctor.sectionColors?.hero || undefined }}>
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
@@ -296,7 +296,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
 
       {/* About & Biography */}
       {config.about && (
-        <section className="py-14 bg-white border-b border-slate-200/80">
+        <section className="py-14 bg-white border-b border-slate-200/80" style={{ backgroundColor: doctor.sectionColors?.about || undefined }}>
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <div className="max-w-3xl space-y-4">
               <span className="text-xs font-bold uppercase tracking-wider text-teal-800">
@@ -315,7 +315,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
 
       {/* Qualifications & Career Experience */}
       {(config.qualifications || config.experience) && (
-        <section className="py-14 bg-slate-50 border-b border-slate-200/80">
+        <section className="py-14 bg-slate-50 border-b border-slate-200/80" style={{ backgroundColor: doctor.sectionColors?.qualifications || undefined }}>
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
@@ -375,7 +375,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
 
       {/* Medical Services */}
       {config.services && (
-        <section className="py-14 bg-white border-b border-slate-200/80">
+        <section className="py-14 bg-white border-b border-slate-200/80" style={{ backgroundColor: doctor.sectionColors?.services || undefined }}>
           <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-8">
             
             <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
@@ -444,7 +444,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
 
       {/* Clinic Details & Schedule */}
       {config.clinic && (
-        <section id="clinic-schedule" className="py-14 bg-slate-50 border-b border-slate-200/80">
+        <section id="clinic-schedule" className="py-14 bg-slate-50 border-b border-slate-200/80" style={{ backgroundColor: doctor.sectionColors?.clinic || undefined }}>
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -536,7 +536,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
 
       {/* Health Articles & Patient Education */}
       {config.articles && doctor.articles?.length > 0 && (
-        <section className="py-14 bg-white border-b border-slate-200/80">
+        <section className="py-14 bg-white border-b border-slate-200/80" style={{ backgroundColor: doctor.sectionColors?.articles || undefined }}>
           <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-6">
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-teal-800">التثقيف الطبي</span>
@@ -577,7 +577,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
 
       {/* Patient FAQs */}
       {config.faqs && doctor.faqs?.length > 0 && (
-        <section className="py-14 bg-slate-50 border-b border-slate-200/80">
+        <section className="py-14 bg-slate-50 border-b border-slate-200/80" style={{ backgroundColor: doctor.sectionColors?.faqs || undefined }}>
           <div className="max-w-4xl mx-auto px-4 sm:px-6 space-y-6">
             <div className="text-center space-y-1">
               <span className="text-xs font-bold uppercase tracking-wider text-teal-800">إجابات وتوضيحات</span>
@@ -614,7 +614,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
 
       {/* Testimonials */}
       {config.testimonials && doctor.testimonials?.length > 0 && (
-        <section className="py-14 bg-white border-b border-slate-200/80">
+        <section className="py-14 bg-white border-b border-slate-200/80" style={{ backgroundColor: doctor.sectionColors?.testimonials || undefined }}>
           <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-6">
             <div className="text-center space-y-1">
               <span className="text-xs font-bold uppercase tracking-wider text-teal-800">تجارب حقيقية</span>
@@ -650,7 +650,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
 
       {/* Contact Section */}
       {config.contact && (
-        <section className="py-12 bg-slate-900 text-white">
+        <section className="py-12 bg-slate-900 text-white" style={{ backgroundColor: doctor.sectionColors?.contact || undefined }}>
           <div className="max-w-6xl mx-auto px-4 sm:px-6">
             <div className="flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-right">
               <div>
@@ -687,6 +687,17 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
           </div>
         </section>
       )}
+
+      {(doctor.customSections || []).map(section => (
+        <section key={section.id} className="border-b border-slate-200/80 py-14" style={{ backgroundColor: section.backgroundColor || '#ffffff' }}>
+          <div className="mx-auto max-w-6xl px-4 sm:px-6">
+            <div className="mx-auto max-w-3xl space-y-4 text-right">
+              <h2 className="text-2xl font-extrabold tracking-tight text-slate-900">{section.title}</h2>
+              <p className="whitespace-pre-line text-sm leading-8 text-slate-700">{section.body}</p>
+            </div>
+          </div>
+        </section>
+      ))}
 
       {/* Article Reader Modal */}
       {selectedArticle && (
