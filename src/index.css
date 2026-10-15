@@ -36,3 +36,59 @@
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
+
+/* Polished studio surfaces and motion, with a reduced-motion fallback. */
+:root {
+  color-scheme: light;
+  --studio-ink: #102a35;
+  --studio-mint: #e9f7f3;
+}
+
+::selection {
+  color: #0b3b37;
+  background: #bcebe0;
+}
+
+button, a, input, textarea, select {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button:not(:disabled) {
+  transition: transform 180ms ease, box-shadow 180ms ease, background-color 180ms ease, color 180ms ease;
+}
+
+button:not(:disabled):active {
+  transform: translateY(1px) scale(.985);
+}
+
+input:focus-visible, textarea:focus-visible, select:focus-visible, button:focus-visible, a:focus-visible {
+  outline: 3px solid rgba(20, 130, 118, .35);
+  outline-offset: 2px;
+}
+
+@keyframes studio-enter {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.studio-enter {
+  animation: studio-enter 420ms cubic-bezier(.2,.75,.25,1) both;
+}
+
+@keyframes studio-orbit {
+  0%, 100% { transform: translateY(0) rotate(-3deg); }
+  50% { transform: translateY(-7px) rotate(2deg); }
+}
+
+.studio-orbit {
+  animation: studio-orbit 7s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
