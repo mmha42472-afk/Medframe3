@@ -8,10 +8,13 @@ import {
   MedicalService,
   MedicalArticle,
   PatientFAQ,
-  PatientTestimonial
+  PatientTestimonial,
+  SectionBgStyle
 } from '../../types/doctor';
 import { THEME_PALETTES, getTheme } from '../../utils/theme';
+import { translateDoctorProfileToEnglish } from '../../utils/translator';
 import { DoctorWebsiteView } from '../Preview/DoctorWebsiteView';
+import { DoctorPhotoUploader } from './DoctorPhotoUploader';
 import { 
   ArrowRight, 
   Save, 
@@ -35,7 +38,10 @@ import {
   FileText,
   HelpCircle,
   Share2,
-  Search
+  Search,
+  Star,
+  MessageSquare,
+  Languages
 } from 'lucide-react';
 
 interface DoctorBuilderProps {
@@ -51,6 +57,7 @@ type TabType =
   | 'credentials' 
   | 'clinic' 
   | 'services' 
+  | 'reviews'
   | 'articles' 
   | 'faqs' 
   | 'seo' 
@@ -68,6 +75,7 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
   const [showLivePreview, setShowLivePreview] = useState<boolean>(true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [autoTranslateNotice, setAutoTranslateNotice] = useState<string | null>(null);
 
   // Subspecialty tag input helper
   const [subspecialtyInput, setSubspecialtyInput] = useState('');
@@ -76,6 +84,16 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
 
   const handleFieldChange = <K extends keyof DoctorProfile>(field: K, value: DoctorProfile[K]) => {
     setDoctor(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleCustomStyleChange = (field: keyof NonNullable<DoctorProfile['customStyles']>, value: any) => {
+    setDoctor(prev => ({
+      ...prev,
+      customStyles: {
+        ...(prev.customStyles || {}),
+        [field]: value
+      }
+    }));
   };
 
   const handleClinicChange = (field: keyof DoctorProfile['clinic'], value: any) => {
@@ -222,6 +240,41 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
     }));
   };
 
+  // Testimonials / Reviews helpers
+  const handleAddReview = () => {
+    const newRev: PatientTestimonial = {
+      id: `rev-${Date.now()}`,
+      patientName: 'اسم المراجع',
+      patientNameEn: 'Patient Name',
+      rating: 5,
+      comment: 'تجربة علاجية ممتازة ورعاية طبية فائقة المستوى.',
+      commentEn: 'Outstanding medical care and great professionalism.',
+      treatmentType: 'استشارة طبية',
+      treatmentTypeEn: 'Consultation',
+      date: new Date().toISOString().slice(0, 10),
+      verified: true
+    };
+    setDoctor(prev => ({
+      ...prev,
+      testimonials: [newRev, ...(prev.testimonials || [])],
+      reviewCount: (prev.reviewCount || 0) + 1
+    }));
+  };
+
+  const handleUpdateReview = (index: number, field: keyof PatientTestimonial, value: any) => {
+    const list = [...(doctor.testimonials || [])];
+    list[index] = { ...list[index], [field]: value };
+    setDoctor(prev => ({ ...prev, testimonials: list }));
+  };
+
+  const handleRemoveReview = (id: string) => {
+    setDoctor(prev => ({
+      ...prev,
+      testimonials: (prev.testimonials || []).filter(t => t.id !== id),
+      reviewCount: Math.max(0, (prev.reviewCount || 1) - 1)
+    }));
+  };
+
   // FAQs helpers
   const handleAddFaq = () => {
     const newFaq: PatientFAQ = {
@@ -278,6 +331,14 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
     }));
   };
 
+  // Automatic Translation to English
+  const handleAutoTranslate = () => {
+    const translated = translateDoctorProfileToEnglish(doctor);
+    setDoctor(translated);
+    setAutoTranslateNotice('تمت ترجمة كافة بيانات الطبيب إلى الإنجليزية تلقائياً بنجاح! تم ملء الأسماء، التخصصات، النبذة، العيادة، الخدمات، والمقالات.');
+    setTimeout(() => setAutoTranslateNotice(null), 4500);
+  };
+
   // Save handler
   const handleSave = async (statusOverride?: DoctorStatus) => {
     setIsSaving(true);
@@ -299,6 +360,22 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
   return (
     <div className="space-y-4" dir="rtl">
       
+      {/* Auto Translate Celebratory Toast */}
+      {autoTranslateNotice && (
+        <div className="p-3.5 bg-gradient-to-r from-teal-900 to-indigo-950 text-white rounded-2xl shadow-xl border border-teal-500/40 flex items-center justify-between gap-3 text-xs font-semibold animate-in slide-in-from-top-2 duration-200">
+          <div className="flex items-center gap-2.5">
+            <Sparkles className="w-4 h-4 text-amber-300 shrink-0" />
+            <span>{autoTranslateNotice}</span>
+          </div>
+          <button 
+            onClick={() => setAutoTranslateNotice(null)}
+            className="text-white/70 hover:text-white text-xs font-bold px-2 py-0.5 rounded-lg bg-white/10"
+          >
+            حسناً
+          </button>
+        </div>
+      )}
+
       {/* Builder Top Bar */}
       <div className="bg-white p-4 rounded-2xl border border-slate-200/80 shadow-2xs flex flex-col md:flex-row items-stretch md:items-center justify-between gap-4">
         
@@ -327,6 +404,18 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
 
         {/* Viewport switch and Action buttons */}
         <div className="flex flex-wrap items-center gap-2">
+          
+          {/* AI Auto-Translate Button */}
+          <button
+            type="button"
+            onClick={handleAutoTranslate}
+            className="px-3.5 py-2 bg-gradient-to-r from-teal-700 via-teal-800 to-indigo-800 hover:from-teal-800 hover:to-indigo-900 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center gap-1.5"
+            title="ترجمة جميع بيانات الطبيب للغة الإنجليزية تلقائياً للمرضى الأجانب"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-amber-300" />
+            <span>ترجمة للإنجليزية تلقائياً (AI Translate)</span>
+          </button>
+
           {/* Device toggle (for live preview) */}
           {showLivePreview && (
             <div className="hidden lg:flex items-center gap-1 p-1 bg-slate-100 rounded-xl">
@@ -398,11 +487,13 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
           <button
             onClick={() => handleSave()}
             disabled={isSaving}
-            className="px-5 py-2 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 disabled:opacity-50"
+            className={`px-5 py-2 text-white rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm ${
+              saveSuccess ? 'bg-emerald-600' : 'bg-teal-800 hover:bg-teal-900'
+            }`}
           >
             {saveSuccess ? (
               <>
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <CheckCircle2 className="w-4 h-4" />
                 <span>تم الحفظ بنجاح!</span>
               </>
             ) : (
@@ -412,11 +503,12 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
               </>
             )}
           </button>
+
         </div>
 
       </div>
 
-      {/* Main Split: Editor on Left/Right, Live Responsive Viewport on the other */}
+      {/* Editor & Viewport Split View */}
       <div className={`grid grid-cols-1 ${showLivePreview ? 'lg:grid-cols-12' : ''} gap-5 items-start`}>
         
         {/* Editor Form Columns */}
@@ -431,7 +523,7 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
               }`}
             >
               <Palette className="w-3.5 h-3.5" />
-              <span>الهوية والتصميم</span>
+              <span>الهوية والصورة والألوان</span>
             </button>
 
             <button
@@ -475,6 +567,16 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
             </button>
 
             <button
+              onClick={() => setActiveTab('reviews')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+                activeTab === 'reviews' ? 'bg-white text-teal-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <Star className="w-3.5 h-3.5 text-amber-500" />
+              <span>التقييمات ({doctor.testimonials?.length || 0})</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('articles')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
                 activeTab === 'articles' ? 'bg-white text-teal-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
@@ -491,7 +593,7 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
               }`}
             >
               <HelpCircle className="w-3.5 h-3.5" />
-              <span>الأسئلة والآراء</span>
+              <span>الأسئلة الشائعة</span>
             </button>
 
             <button
@@ -511,7 +613,7 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
               }`}
             >
               <Sliders className="w-3.5 h-3.5" />
-              <span>ظهور الأقسام</span>
+              <span>الأقسام والخلفيات</span>
             </button>
           </div>
 
@@ -520,14 +622,22 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
             
             {/* TAB 1: BRANDING & THEME */}
             {activeTab === 'branding' && (
-              <div className="space-y-4">
+              <div className="space-y-5">
                 
+                {/* Doctor Photo Uploader */}
+                <DoctorPhotoUploader
+                  currentAvatarUrl={doctor.avatarUrl}
+                  doctorName={doctor.name}
+                  themeColor={doctor.themeColor}
+                  onChangeAvatar={(url) => handleFieldChange('avatarUrl', url)}
+                />
+
                 {/* Theme Palette Selection */}
                 <div className="space-y-2">
                   <label className="block text-xs font-bold text-slate-800">
-                    النمط اللوني المعتمد للموقع (Theme Palette)
+                    النمط اللوني المعتمد للموقع (8 ألوان طبية فاخرة)
                   </label>
-                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                     {(Object.keys(THEME_PALETTES) as ThemeColor[]).map((themeKey) => {
                       const pal = THEME_PALETTES[themeKey];
                       const isSelected = doctor.themeColor === themeKey;
@@ -536,19 +646,18 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                           key={themeKey}
                           type="button"
                           onClick={() => handleFieldChange('themeColor', themeKey)}
-                          className={`p-2.5 rounded-xl border text-right transition-all flex items-center gap-2.5 ${
+                          className={`p-2 rounded-xl border text-right transition-all flex items-center gap-2 ${
                             isSelected 
-                              ? 'border-teal-700 bg-teal-50/50 shadow-2xs ring-1 ring-teal-700' 
+                              ? 'border-teal-700 bg-teal-50/50 shadow-xs ring-1 ring-teal-700' 
                               : 'border-slate-200 hover:bg-slate-50'
                           }`}
                         >
                           <span 
-                            className="w-5 h-5 rounded-full shrink-0 shadow-xs" 
+                            className="w-4 h-4 rounded-full shrink-0 shadow-xs" 
                             style={{ background: pal.primary }}
                           ></span>
                           <div className="overflow-hidden">
-                            <span className="block text-xs font-bold text-slate-900 truncate">{pal.nameAr}</span>
-                            <span className="block text-[10px] text-slate-400 font-mono">{pal.nameEn}</span>
+                            <span className="block text-[11px] font-bold text-slate-900 truncate">{pal.nameAr.split('(')[0]}</span>
                           </div>
                         </button>
                       );
@@ -559,11 +668,10 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                 {/* Doctor Names & Slug */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
                   <div className="space-y-1">
-                    <label htmlFor="builder-doctor-name" className="block text-xs font-semibold text-slate-700">
+                    <label className="block text-xs font-semibold text-slate-700">
                       اسم الطبيب باللغة العربية *
                     </label>
                     <input
-                      id="builder-doctor-name"
                       type="text"
                       value={doctor.name}
                       onChange={(e) => handleFieldChange('name', e.target.value)}
@@ -573,11 +681,10 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                   </div>
 
                   <div className="space-y-1">
-                    <label htmlFor="builder-doctor-name-en" className="block text-xs font-semibold text-slate-700">
-                      الاسم باللغة الإنجليزية
+                    <label className="block text-xs font-semibold text-slate-700">
+                      الاسم باللغة الإنجليزية (English Name)
                     </label>
                     <input
-                      id="builder-doctor-name-en"
                       type="text"
                       value={doctor.nameEn || ''}
                       onChange={(e) => handleFieldChange('nameEn', e.target.value)}
@@ -589,12 +696,11 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
 
                 {/* Slug */}
                 <div className="space-y-1">
-                  <label htmlFor="builder-doctor-slug" className="block text-xs font-semibold text-slate-700">
+                  <label className="block text-xs font-semibold text-slate-700">
                     رابط الموقع المباشر (URL Slug) *
                   </label>
                   <div className="relative">
                     <input
-                      id="builder-doctor-slug"
                       type="text"
                       value={doctor.slug}
                       onChange={(e) => handleFieldChange('slug', e.target.value.toLowerCase().replace(/[^a-z0-9_-]/g, ''))}
@@ -607,11 +713,10 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                 {/* Professional Title & Primary Specialty */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label htmlFor="builder-doctor-title" className="block text-xs font-semibold text-slate-700">
+                    <label className="block text-xs font-semibold text-slate-700">
                       المسمى الوظيفي والأكاديمي *
                     </label>
                     <input
-                      id="builder-doctor-title"
                       type="text"
                       value={doctor.title}
                       onChange={(e) => handleFieldChange('title', e.target.value)}
@@ -621,11 +726,26 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                   </div>
 
                   <div className="space-y-1">
-                    <label htmlFor="builder-doctor-specialty" className="block text-xs font-semibold text-slate-700">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      المسمى بالإنجليزية (Title in English)
+                    </label>
+                    <input
+                      type="text"
+                      value={doctor.titleEn || ''}
+                      onChange={(e) => handleFieldChange('titleEn', e.target.value)}
+                      placeholder="Consultant Cardiac Surgeon"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-700 focus:bg-white outline-none text-left font-mono"
+                    />
+                  </div>
+                </div>
+
+                {/* Specialty */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-slate-700">
                       التخصص الرئيسي *
                     </label>
                     <input
-                      id="builder-doctor-specialty"
                       type="text"
                       value={doctor.specialty}
                       onChange={(e) => handleFieldChange('specialty', e.target.value)}
@@ -633,16 +753,28 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                       className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-700 focus:bg-white outline-none"
                     />
                   </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-slate-700">
+                      التخصص بالإنجليزية (Specialty in English)
+                    </label>
+                    <input
+                      type="text"
+                      value={doctor.specialtyEn || ''}
+                      onChange={(e) => handleFieldChange('specialtyEn', e.target.value)}
+                      placeholder="Cardiovascular Surgery"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-700 focus:bg-white outline-none text-left font-mono"
+                    />
+                  </div>
                 </div>
 
                 {/* Subspecialties Tag Manager */}
                 <div className="space-y-1.5">
-                  <label htmlFor="builder-subspecialty-input" className="block text-xs font-semibold text-slate-700">
+                  <label className="block text-xs font-semibold text-slate-700">
                     التخصصات الدقيقة والاهتمامات السريرية
                   </label>
                   <div className="flex gap-2">
                     <input
-                      id="builder-subspecialty-input"
                       type="text"
                       value={subspecialtyInput}
                       onChange={(e) => setSubspecialtyInput(e.target.value)}
@@ -652,13 +784,13 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                           handleAddSubspecialty();
                         }
                       }}
-                      placeholder="اكتب التخصص الدقيق واضغط إضافة..."
-                      className="flex-1 px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-700 outline-none"
+                      placeholder="اكتب التخصص ثم اضغط إضافة..."
+                      className="flex-1 px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-700 focus:bg-white outline-none"
                     />
                     <button
                       type="button"
                       onClick={handleAddSubspecialty}
-                      className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold rounded-xl transition-colors"
+                      className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-colors"
                     >
                       إضافة
                     </button>
@@ -666,14 +798,17 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
 
                   <div className="flex flex-wrap gap-1.5 pt-1">
                     {doctor.subspecialties?.map((sub, idx) => (
-                      <span key={idx} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-slate-100 text-slate-700 text-xs rounded-lg font-medium">
+                      <span 
+                        key={idx}
+                        className="inline-flex items-center gap-1 px-2.5 py-1 bg-slate-100 text-slate-700 rounded-lg text-xs font-medium"
+                      >
                         <span>{sub}</span>
                         <button
                           type="button"
                           onClick={() => handleRemoveSubspecialty(idx)}
-                          className="text-slate-400 hover:text-rose-600"
+                          className="hover:text-rose-600 transition-colors"
                         >
-                          ✕
+                          ×
                         </button>
                       </span>
                     ))}
@@ -683,51 +818,28 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                 {/* License & Experience */}
                 <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label htmlFor="builder-license-number" className="block text-xs font-semibold text-slate-700">
-                      رقم الترخيص الطبي المعتمد
+                    <label className="block text-xs font-semibold text-slate-700">
+                      رقم الترخيص الطبي *
                     </label>
                     <input
-                      id="builder-license-number"
                       type="text"
                       value={doctor.licenseNumber}
                       onChange={(e) => handleFieldChange('licenseNumber', e.target.value)}
-                      placeholder="SCHS-2015-XXXXX"
-                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-700 outline-none font-mono dir-ltr text-right"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono text-left"
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label htmlFor="builder-experience-years" className="block text-xs font-semibold text-slate-700">
+                    <label className="block text-xs font-semibold text-slate-700">
                       سنوات الخبرة السريرية
                     </label>
                     <input
-                      id="builder-experience-years"
                       type="number"
-                      min={1}
-                      max={60}
                       value={doctor.experienceYears}
                       onChange={(e) => handleFieldChange('experienceYears', Number(e.target.value))}
-                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-700 outline-none tabular-nums"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl tabular-nums"
                     />
                   </div>
-                </div>
-
-                {/* Doctor Avatar URL */}
-                <div className="space-y-1">
-                  <label htmlFor="builder-avatar-url" className="block text-xs font-semibold text-slate-700">
-                    رابط صورة الطبيب (Avatar URL)
-                  </label>
-                  <input
-                    id="builder-avatar-url"
-                    type="url"
-                    value={doctor.avatarUrl || ''}
-                    onChange={(e) => handleFieldChange('avatarUrl', e.target.value)}
-                    placeholder="اتركه فارغاً ليتم إنشاء مونوغرام طبي أنيق تلقائياً"
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-700 outline-none dir-ltr text-left"
-                  />
-                  <p className="text-[11px] text-slate-600">
-                    في حال عدم توفر رابط صورة، ينشئ النظام شارة مونوغرام طبية راقية مع الأحرف الأولى للطبيب.
-                  </p>
                 </div>
 
               </div>
@@ -737,49 +849,74 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
             {activeTab === 'bio' && (
               <div className="space-y-4">
                 <div className="space-y-1">
-                  <label htmlFor="builder-doctor-bio" className="block text-xs font-semibold text-slate-700">
-                    النبذة والسيرة الذاتية السريرية *
+                  <label className="block text-xs font-semibold text-slate-700">
+                    الرسالة الشخصية والوعد الطبي للمرضى (Arabic Statement)
+                  </label>
+                  <input
+                    type="text"
+                    value={doctor.statement}
+                    onChange={(e) => handleFieldChange('statement', e.target.value)}
+                    placeholder="رعاية قلبية متكاملة بروح إنسانية وتقنيات تشخيصية حديثة"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    الرسالة بالإنجليزية (English Statement)
+                  </label>
+                  <input
+                    type="text"
+                    value={doctor.statementEn || ''}
+                    onChange={(e) => handleFieldChange('statementEn', e.target.value)}
+                    placeholder="Comprehensive cardiac care with compassion and state-of-the-art diagnostics."
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-left"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    السيرة الذاتية والمسيرة المهنية (Arabic Bio)
                   </label>
                   <textarea
-                    id="builder-doctor-bio"
                     rows={6}
                     value={doctor.bio}
                     onChange={(e) => handleFieldChange('bio', e.target.value)}
-                    placeholder="اكتب نبذة شاملة عن مسيرة الطبيب ومجالات تخصصه وأسلوب رعايته للمرضى..."
-                    className="w-full p-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-700 focus:bg-white outline-none leading-relaxed"
+                    placeholder="اكتب نبذة شاملة عن مسيرة الطبيب ومجالات تخصصه..."
+                    className="w-full p-3 text-xs bg-slate-50 border border-slate-200 rounded-xl leading-relaxed"
                   ></textarea>
                 </div>
 
                 <div className="space-y-1">
-                  <label htmlFor="builder-doctor-statement" className="block text-xs font-semibold text-slate-700">
-                    رسالة الطبيب أو شعاره للمرضى (Quote / Mission Statement)
+                  <label className="block text-xs font-semibold text-slate-700">
+                    السيرة الذاتية بالإنجليزية (English Bio)
                   </label>
                   <textarea
-                    id="builder-doctor-statement"
-                    rows={3}
-                    value={doctor.statement}
-                    onChange={(e) => handleFieldChange('statement', e.target.value)}
-                    placeholder="مثال: رسالتنا تتجاوز مداواة الأعراض؛ هدفنا تمكين كل مريض من استعادة نشاطه وصحته بأمان..."
-                    className="w-full p-3 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-700 focus:bg-white outline-none"
+                    rows={5}
+                    value={doctor.bioEn || ''}
+                    onChange={(e) => handleFieldChange('bioEn', e.target.value)}
+                    placeholder="Write a comprehensive biography in English..."
+                    className="w-full p-3 text-xs bg-slate-50 border border-slate-200 rounded-xl leading-relaxed text-left"
                   ></textarea>
                 </div>
               </div>
             )}
 
-            {/* TAB 3: QUALIFICATIONS & EXPERIENCE */}
+            {/* TAB 3: CREDENTIALS */}
             {activeTab === 'credentials' && (
               <div className="space-y-6">
-                {/* Qualifications List */}
+                
+                {/* Qualifications */}
                 <div className="space-y-3">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-bold text-slate-900">المؤهلات والشهادات الأكاديمية</h3>
+                    <h3 className="text-xs font-bold text-slate-900">المؤهلات العلمية والشهادات</h3>
                     <button
                       type="button"
                       onClick={handleAddQualification}
-                      className="px-2.5 py-1 bg-teal-50 text-teal-800 hover:bg-teal-100 rounded-lg text-xs font-bold transition-colors flex items-center gap-1"
+                      className="px-3 py-1 bg-teal-50 text-teal-800 hover:bg-teal-100 rounded-xl text-xs font-bold transition-colors flex items-center gap-1"
                     >
                       <Plus className="w-3.5 h-3.5" />
-                      <span>إضافة شهادة</span>
+                      <span>إضافة مؤهل</span>
                     </button>
                   </div>
 
@@ -791,15 +928,8 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                             type="text"
                             value={q.degree}
                             onChange={(e) => handleUpdateQualification(idx, 'degree', e.target.value)}
-                            placeholder="الدرجة العلمية (مثال: البورد السعودي)"
-                            className="flex-1 px-2.5 py-1 text-xs bg-white border border-slate-200 rounded-lg"
-                          />
-                          <input
-                            type="text"
-                            value={q.year}
-                            onChange={(e) => handleUpdateQualification(idx, 'year', e.target.value)}
-                            placeholder="السنة"
-                            className="w-20 px-2 py-1 text-xs bg-white border border-slate-200 rounded-lg font-mono text-center"
+                            placeholder="الدرجة العلمية (مثال: البورد الكندي)"
+                            className="flex-1 px-2.5 py-1 text-xs bg-white border border-slate-200 rounded-lg font-bold"
                           />
                           <button
                             type="button"
@@ -809,26 +939,35 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
-                        <input
-                          type="text"
-                          value={q.institution}
-                          onChange={(e) => handleUpdateQualification(idx, 'institution', e.target.value)}
-                          placeholder="الجامعة أو الهيئة المانحة (مثال: جامعة الملك سعود)"
-                          className="w-full px-2.5 py-1 text-xs bg-white border border-slate-200 rounded-lg text-slate-600"
-                        />
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <input
+                            type="text"
+                            value={q.institution}
+                            onChange={(e) => handleUpdateQualification(idx, 'institution', e.target.value)}
+                            placeholder="الجامعة أو المستشفى"
+                            className="px-2 py-1 bg-white border border-slate-200 rounded-lg"
+                          />
+                          <input
+                            type="text"
+                            value={q.year}
+                            onChange={(e) => handleUpdateQualification(idx, 'year', e.target.value)}
+                            placeholder="سنة التخرج (مثال: 2018)"
+                            className="px-2 py-1 bg-white border border-slate-200 rounded-lg font-mono"
+                          />
+                        </div>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                {/* Experience Timeline */}
+                {/* Experience */}
                 <div className="space-y-3 pt-4 border-t border-slate-100">
                   <div className="flex items-center justify-between">
-                    <h3 className="text-xs font-bold text-slate-900">المناصب والمستشفيات السابقة</h3>
+                    <h3 className="text-xs font-bold text-slate-900">المسيرة والمناصب الطبية</h3>
                     <button
                       type="button"
                       onClick={handleAddExperience}
-                      className="px-2.5 py-1 bg-teal-50 text-teal-800 hover:bg-teal-100 rounded-lg text-xs font-bold transition-colors flex items-center gap-1"
+                      className="px-3 py-1 bg-teal-50 text-teal-800 hover:bg-teal-100 rounded-xl text-xs font-bold transition-colors flex items-center gap-1"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       <span>إضافة منصب</span>
@@ -843,15 +982,8 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                             type="text"
                             value={exp.role}
                             onChange={(e) => handleUpdateExperience(idx, 'role', e.target.value)}
-                            placeholder="المسمى الإكلينيكي"
+                            placeholder="المسمى الوظيفي (مثال: رئيس قسم الجراحة)"
                             className="flex-1 px-2.5 py-1 text-xs bg-white border border-slate-200 rounded-lg font-bold"
-                          />
-                          <input
-                            type="text"
-                            value={exp.period}
-                            onChange={(e) => handleUpdateExperience(idx, 'period', e.target.value)}
-                            placeholder="الفترة (مثال: 2018 - الآن)"
-                            className="w-28 px-2 py-1 text-xs bg-white border border-slate-200 rounded-lg font-mono text-center"
                           />
                           <button
                             type="button"
@@ -861,20 +993,22 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                             <Trash2 className="w-4 h-4" />
                           </button>
                         </div>
-                        <input
-                          type="text"
-                          value={exp.hospital}
-                          onChange={(e) => handleUpdateExperience(idx, 'hospital', e.target.value)}
-                          placeholder="المستشفى أو المركز الطبي"
-                          className="w-full px-2.5 py-1 text-xs bg-white border border-slate-200 rounded-lg text-teal-800 font-medium"
-                        />
-                        <textarea
-                          rows={2}
-                          value={exp.description || ''}
-                          onChange={(e) => handleUpdateExperience(idx, 'description', e.target.value)}
-                          placeholder="وصف مختصر للمهام والإنجازات..."
-                          className="w-full px-2.5 py-1 text-xs bg-white border border-slate-200 rounded-lg text-slate-600"
-                        ></textarea>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <input
+                            type="text"
+                            value={exp.hospital}
+                            onChange={(e) => handleUpdateExperience(idx, 'hospital', e.target.value)}
+                            placeholder="المستشفى أو المركز الطبي"
+                            className="px-2 py-1 bg-white border border-slate-200 rounded-lg"
+                          />
+                          <input
+                            type="text"
+                            value={exp.period}
+                            onChange={(e) => handleUpdateExperience(idx, 'period', e.target.value)}
+                            placeholder="الفترة الزمنية (مثال: 2019 - الآن)"
+                            className="px-2 py-1 bg-white border border-slate-200 rounded-lg font-mono"
+                          />
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -883,120 +1017,73 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
               </div>
             )}
 
-            {/* TAB 4: CLINIC & SCHEDULING */}
+            {/* TAB 4: CLINIC & HOURS */}
             {activeTab === 'clinic' && (
               <div className="space-y-4">
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label htmlFor="builder-clinic-name" className="block text-xs font-semibold text-slate-700">
-                      اسم العيادة أو المركز الطبي *
-                    </label>
+                    <label className="block text-xs font-semibold text-slate-700">اسم العيادة أو المركز</label>
                     <input
-                      id="builder-clinic-name"
                       type="text"
-                      value={doctor.clinic.name}
+                      value={doctor.clinic?.name || ''}
                       onChange={(e) => handleClinicChange('name', e.target.value)}
-                      placeholder="مركز المنصوري لجراحة القلب"
-                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-700 outline-none"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl"
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label htmlFor="builder-clinic-city" className="block text-xs font-semibold text-slate-700">
-                      المدينة *
-                    </label>
+                    <label className="block text-xs font-semibold text-slate-700">المدينة</label>
                     <input
-                      id="builder-clinic-city"
                       type="text"
-                      value={doctor.clinic.city}
+                      value={doctor.clinic?.city || ''}
                       onChange={(e) => handleClinicChange('city', e.target.value)}
-                      placeholder="الرياض / جدة / الخبر"
-                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-700 outline-none"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl"
                     />
                   </div>
                 </div>
 
                 <div className="space-y-1">
-                  <label htmlFor="builder-clinic-address" className="block text-xs font-semibold text-slate-700">
-                    العنوان التفصيلي
-                  </label>
+                  <label className="block text-xs font-semibold text-slate-700">العنوان التفصيلي</label>
                   <input
-                    id="builder-clinic-address"
                     type="text"
-                    value={doctor.clinic.address}
+                    value={doctor.clinic?.address || ''}
                     onChange={(e) => handleClinicChange('address', e.target.value)}
-                    placeholder="طريق الملك فهد، حي الملقا، برج النخبة الطبي"
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-700 outline-none"
+                    placeholder="طريق الملك فهد، برج العيادات التخصصية"
+                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl"
                   />
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="grid grid-cols-2 gap-3">
                   <div className="space-y-1">
-                    <label htmlFor="builder-clinic-phone" className="block text-xs font-semibold text-slate-700">
-                      هاتف العيادة *
-                    </label>
+                    <label className="block text-xs font-semibold text-slate-700">هاتف العيادة</label>
                     <input
-                      id="builder-clinic-phone"
-                      type="tel"
-                      value={doctor.clinic.phone}
+                      type="text"
+                      value={doctor.clinic?.phone || ''}
                       onChange={(e) => handleClinicChange('phone', e.target.value)}
-                      placeholder="+966 11 482 9900"
-                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-700 outline-none font-mono dir-ltr text-right"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono text-left"
                     />
                   </div>
 
                   <div className="space-y-1">
-                    <label htmlFor="builder-clinic-whatsapp" className="block text-xs font-semibold text-slate-700">
-                      واتساب الحجوزات *
-                    </label>
+                    <label className="block text-xs font-semibold text-slate-700">رقم واتساب للحجز</label>
                     <input
-                      id="builder-clinic-whatsapp"
-                      type="tel"
-                      value={doctor.clinic.whatsapp}
+                      type="text"
+                      value={doctor.clinic?.whatsapp || ''}
                       onChange={(e) => handleClinicChange('whatsapp', e.target.value)}
-                      placeholder="+966501123456"
-                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-700 outline-none font-mono dir-ltr text-right"
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono text-left"
                     />
                   </div>
-
-                  <div className="space-y-1">
-                    <label htmlFor="builder-clinic-emergency" className="block text-xs font-semibold text-slate-700">
-                      هاتف الطوارئ (اختياري)
-                    </label>
-                    <input
-                      id="builder-clinic-emergency"
-                      type="tel"
-                      value={doctor.clinic.emergencyPhone || ''}
-                      onChange={(e) => handleClinicChange('emergencyPhone', e.target.value)}
-                      placeholder="+966 50 112 3456"
-                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-700 outline-none font-mono dir-ltr text-right text-rose-700"
-                    />
-                  </div>
-                </div>
-
-                <div className="space-y-1">
-                  <label htmlFor="builder-clinic-maps" className="block text-xs font-semibold text-slate-700">
-                    رابط خرائط جوجل (Google Maps URL)
-                  </label>
-                  <input
-                    id="builder-clinic-maps"
-                    type="url"
-                    value={doctor.clinic.googleMapsUrl || ''}
-                    onChange={(e) => handleClinicChange('googleMapsUrl', e.target.value)}
-                    placeholder="https://maps.google.com/?q=..."
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-700 outline-none dir-ltr text-left font-mono"
-                  />
                 </div>
               </div>
             )}
 
             {/* TAB 5: SERVICES */}
             {activeTab === 'services' && (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="text-xs font-bold text-slate-900">قائمة الخدمات والفحوصات الطبية</h3>
-                    <p className="text-[11px] text-slate-500">أضف الإجراءات مع مدتها والأسعار وتغطية التأمين.</p>
+                    <h3 className="text-xs font-bold text-slate-900">الخدمات والفحوصات الطبية</h3>
+                    <p className="text-[11px] text-slate-500">حدد الإجراءات والخدمات التي تقدمها في عيادتك مع أسعارها ومدتها.</p>
                   </div>
                   <button
                     type="button"
@@ -1016,7 +1103,7 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                           type="text"
                           value={svc.name}
                           onChange={(e) => handleUpdateService(idx, 'name', e.target.value)}
-                          placeholder="اسم الخدمة الطبية"
+                          placeholder="اسم الخدمة أو الفحص"
                           className="flex-1 px-3 py-1 text-xs bg-white border border-slate-200 rounded-lg font-bold"
                         />
                         <button
@@ -1032,13 +1119,13 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                         rows={2}
                         value={svc.description}
                         onChange={(e) => handleUpdateService(idx, 'description', e.target.value)}
-                        placeholder="وصف تفصيلي للإجراء والفوائد السريرية..."
-                        className="w-full p-2 text-xs bg-white border border-slate-200 rounded-lg text-slate-600"
+                        placeholder="وصف تفصيلي للخدمة الطبية..."
+                        className="w-full p-2 text-xs bg-white border border-slate-200 rounded-lg"
                       ></textarea>
 
                       <div className="grid grid-cols-3 gap-2 text-xs">
                         <div>
-                          <label className="block text-[10px] text-slate-500">السعر (ر.س)</label>
+                          <label className="block text-[10px] text-slate-500">السعر (ريال)</label>
                           <input
                             type="number"
                             value={svc.price || ''}
@@ -1066,10 +1153,94 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                             className="w-4 h-4 rounded text-teal-800 focus:ring-teal-700"
                           />
                           <label htmlFor={`insurance-${svc.id}`} className="text-[11px] font-semibold text-slate-700 cursor-pointer">
-                            مشمول بالتأمين
+                            تأمين
                           </label>
                         </div>
                       </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* TAB: REVIEWS / TESTIMONIALS */}
+            {activeTab === 'reviews' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-900">تقييمات وتجارب المرضى (Patient Reviews)</h3>
+                    <p className="text-[11px] text-slate-500">يمكنك إضافة أو تعديل أو حذف تقييمات المراجعين المعروضة في موقع الطبيب.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleAddReview}
+                    className="px-3 py-1.5 bg-teal-50 text-teal-800 hover:bg-teal-100 rounded-xl text-xs font-bold transition-colors flex items-center gap-1"
+                  >
+                    <Plus className="w-4 h-4" />
+                    <span>إضافة تقييم</span>
+                  </button>
+                </div>
+
+                <div className="space-y-3">
+                  {doctor.testimonials?.map((t, idx) => (
+                    <div key={t.id} className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <input
+                          type="text"
+                          value={t.patientName}
+                          onChange={(e) => handleUpdateReview(idx, 'patientName', e.target.value)}
+                          placeholder="اسم المريض"
+                          className="flex-1 px-3 py-1 text-xs bg-white border border-slate-200 rounded-lg font-bold"
+                        />
+                        <div className="flex items-center gap-1">
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <button
+                              key={star}
+                              type="button"
+                              onClick={() => handleUpdateReview(idx, 'rating', star)}
+                              className="p-0.5"
+                            >
+                              <Star
+                                className={`w-3.5 h-3.5 ${
+                                  t.rating >= star ? 'text-amber-400 fill-amber-400' : 'text-slate-300'
+                                }`}
+                              />
+                            </button>
+                          ))}
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveReview(t.id)}
+                          className="p-1 text-slate-400 hover:text-rose-600"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2 text-xs">
+                        <input
+                          type="text"
+                          value={t.treatmentType || ''}
+                          onChange={(e) => handleUpdateReview(idx, 'treatmentType', e.target.value)}
+                          placeholder="نوع العلاج / الإجراء"
+                          className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg"
+                        />
+                        <input
+                          type="text"
+                          value={t.date}
+                          onChange={(e) => handleUpdateReview(idx, 'date', e.target.value)}
+                          placeholder="التاريخ"
+                          className="px-2.5 py-1 bg-white border border-slate-200 rounded-lg font-mono text-left"
+                        />
+                      </div>
+
+                      <textarea
+                        rows={2}
+                        value={t.comment}
+                        onChange={(e) => handleUpdateReview(idx, 'comment', e.target.value)}
+                        placeholder="نص التقييم ورأي المريض..."
+                        className="w-full p-2 text-xs bg-white border border-slate-200 rounded-lg leading-relaxed text-slate-700"
+                      />
                     </div>
                   ))}
                 </div>
@@ -1203,11 +1374,10 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
             {activeTab === 'seo' && (
               <div className="space-y-4">
                 <div className="space-y-1">
-                  <label htmlFor="builder-seo-title" className="block text-xs font-semibold text-slate-700">
+                  <label className="block text-xs font-semibold text-slate-700">
                     عنوان الصفحة لمحركات البحث (Meta Title)
                   </label>
                   <input
-                    id="builder-seo-title"
                     type="text"
                     value={doctor.seo?.metaTitle || ''}
                     onChange={(e) => handleSEOChange('metaTitle', e.target.value)}
@@ -1217,11 +1387,10 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                 </div>
 
                 <div className="space-y-1">
-                  <label htmlFor="builder-seo-desc" className="block text-xs font-semibold text-slate-700">
+                  <label className="block text-xs font-semibold text-slate-700">
                     وصف الصفحة في جوجل والمشاركات (Meta Description)
                   </label>
                   <textarea
-                    id="builder-seo-desc"
                     rows={3}
                     value={doctor.seo?.metaDescription || ''}
                     onChange={(e) => handleSEOChange('metaDescription', e.target.value)}
@@ -1235,9 +1404,8 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                   <h4 className="text-xs font-bold text-slate-900">روابط منصات التواصل الرسمية</h4>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
                     <div>
-                      <label htmlFor="builder-social-x" className="block text-[11px] text-slate-500">حساب منصة X (تويتر)</label>
+                      <label className="block text-[11px] text-slate-500">حساب منصة X (تويتر)</label>
                       <input
-                        id="builder-social-x"
                         type="url"
                         value={doctor.socialLinks?.twitter || ''}
                         onChange={(e) => handleSocialChange('twitter', e.target.value)}
@@ -1246,24 +1414,12 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                       />
                     </div>
                     <div>
-                      <label htmlFor="builder-social-linkedin" className="block text-[11px] text-slate-500">لينكد إن (LinkedIn)</label>
+                      <label className="block text-[11px] text-slate-500">لينكد إن (LinkedIn)</label>
                       <input
-                        id="builder-social-linkedin"
                         type="url"
                         value={doctor.socialLinks?.linkedin || ''}
                         onChange={(e) => handleSocialChange('linkedin', e.target.value)}
                         placeholder="https://linkedin.com/in/..."
-                        className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg dir-ltr text-left font-mono"
-                      />
-                    </div>
-                    <div>
-                      <label htmlFor="builder-social-instagram" className="block text-[11px] text-slate-500">إنستغرام (Instagram)</label>
-                      <input
-                        id="builder-social-instagram"
-                        type="url"
-                        value={doctor.socialLinks?.instagram || ''}
-                        onChange={(e) => handleSocialChange('instagram', e.target.value)}
-                        placeholder="https://instagram.com/..."
                         className="w-full px-2 py-1.5 bg-slate-50 border border-slate-200 rounded-lg dir-ltr text-left font-mono"
                       />
                     </div>
@@ -1272,40 +1428,72 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
               </div>
             )}
 
-            {/* TAB 9: SECTIONS CONFIG */}
+            {/* TAB 9: SECTIONS CONFIG & BACKGROUND COLORS */}
             {activeTab === 'sections' && (
-              <div className="space-y-3">
+              <div className="space-y-5">
                 <div className="pb-2 border-b border-slate-100">
-                  <h3 className="text-xs font-bold text-slate-900">التحكم في ظهور أقسام الموقع العام</h3>
-                  <p className="text-[11px] text-slate-500">يمكنك إخفاء أو إظهار أي قسم في موقع الطبيب بحرية تامة.</p>
+                  <h3 className="text-xs font-bold text-slate-900">إدارة الأقسام وتخصيص ألوان الخلفيات</h3>
+                  <p className="text-[11px] text-slate-500">
+                    تحكم في إظهار أو إخفاء أي قسم، وتخصيص خلفية ولون كل قسم على حدة.
+                  </p>
                 </div>
 
-                <div className="divide-y divide-slate-100">
+                <div className="space-y-3">
                   {[
-                    { key: 'hero', label: 'قسم الواجهة الترحيبية (Hero & CTA)' },
-                    { key: 'about', label: 'نبذة الطبيب والرسالة السريرية (About)' },
-                    { key: 'qualifications', label: 'المؤهلات والزمالات الأكاديمية (Qualifications)' },
-                    { key: 'experience', label: 'المسيرة والمناصب الطبية (Experience)' },
-                    { key: 'services', label: 'الخدمات والإجراءات الطبية (Services)' },
-                    { key: 'clinic', label: 'موقع العيادة وجدول المواعيد (Clinic & Schedule)' },
-                    { key: 'articles', label: 'مقالات التثقيف الصحي (Articles)' },
-                    { key: 'faqs', label: 'الأسئلة الشائعة (FAQs)' },
-                    { key: 'testimonials', label: 'تقييمات وتجارب المرضى (Testimonials)' },
-                    { key: 'contact', label: 'شريط التواصل ومعلومات الترخيص (Contact)' }
-                  ].map(({ key, label }) => {
+                    { key: 'hero', label: 'قسم الواجهة الترحيبية (Hero)', bgKey: 'heroBg' },
+                    { key: 'about', label: 'نبذة الطبيب والرسالة (About)', bgKey: 'aboutBg' },
+                    { key: 'qualifications', label: 'المؤهلات والزمالات (Qualifications)', bgKey: 'qualificationsBg' },
+                    { key: 'services', label: 'الخدمات والإجراءات الطبية (Services)', bgKey: 'servicesBg' },
+                    { key: 'clinic', label: 'موقع العيادة والمواعيد (Clinic & Hours)', bgKey: 'clinicBg' },
+                    { key: 'testimonials', label: 'آراء وتقييمات المرضى (Reviews)', bgKey: 'testimonialsBg' },
+                    { key: 'articles', label: 'مقالات التثقيف الصحي (Articles)', bgKey: 'articlesBg' },
+                    { key: 'faqs', label: 'الأسئلة الشائعة (FAQs)', bgKey: 'faqsBg' },
+                    { key: 'contact', label: 'شريط التواصل والترخيص (Contact)' }
+                  ].map(({ key, label, bgKey }) => {
                     const isVisible = doctor.sectionsConfig?.[key as keyof DoctorProfile['sectionsConfig']] !== false;
+                    const currentBg = bgKey ? ((doctor.customStyles as any)?.[bgKey] || 'default') : undefined;
+
                     return (
-                      <div key={key} className="py-2.5 flex items-center justify-between text-xs">
-                        <span className="font-semibold text-slate-800">{label}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleSectionToggle(key as keyof DoctorProfile['sectionsConfig'])}
-                          className={`px-3 py-1 rounded-lg font-bold transition-colors ${
-                            isVisible ? 'bg-teal-50 text-teal-800' : 'bg-slate-100 text-slate-400'
-                          }`}
-                        >
-                          {isVisible ? 'ظاهر' : 'مخفي'}
-                        </button>
+                      <div key={key} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-slate-900">{label}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleSectionToggle(key as keyof DoctorProfile['sectionsConfig'])}
+                            className={`px-3 py-1 rounded-lg font-bold transition-colors ${
+                              isVisible ? 'bg-teal-50 text-teal-800' : 'bg-slate-200 text-slate-500'
+                            }`}
+                          >
+                            {isVisible ? 'ظاهر بالموقع' : 'مخفي'}
+                          </button>
+                        </div>
+
+                        {/* Background Style Selector for this section */}
+                        {bgKey && isVisible && (
+                          <div className="flex items-center gap-2 pt-1 border-t border-slate-200/60">
+                            <span className="text-[10px] text-slate-500 font-medium">لون خلفية القسم:</span>
+                            <div className="flex flex-wrap gap-1">
+                              {(['default', 'white', 'subtle', 'tinted', 'dark', 'glass'] as SectionBgStyle[]).map((styleName) => (
+                                <button
+                                  key={styleName}
+                                  type="button"
+                                  onClick={() => handleCustomStyleChange(bgKey as any, styleName)}
+                                  className={`px-2 py-0.5 rounded text-[10px] font-bold transition-all ${
+                                    currentBg === styleName 
+                                      ? 'bg-teal-800 text-white shadow-2xs' 
+                                      : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+                                  }`}
+                                >
+                                  {styleName === 'default' ? 'افتراضي' :
+                                   styleName === 'white' ? 'أبيض ناصع' :
+                                   styleName === 'subtle' ? 'رمادي هادئ' :
+                                   styleName === 'tinted' ? 'ملون بالهوية' :
+                                   styleName === 'dark' ? 'داكن ليلي' : 'زجاجي'}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })}
@@ -1351,6 +1539,7 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                 <DoctorWebsiteView
                   doctor={doctor}
                   isPreviewMode={false}
+                  onUpdateDoctor={(up) => setDoctor(up)}
                 />
               </div>
 

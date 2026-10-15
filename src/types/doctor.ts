@@ -1,61 +1,86 @@
-export type ThemeColor = 'teal' | 'navy' | 'emerald' | 'rose' | 'plum';
+export type ThemeColor = 'teal' | 'navy' | 'emerald' | 'rose' | 'plum' | 'amethyst' | 'obsidian' | 'bronze';
 export type DoctorStatus = 'draft' | 'published' | 'archived';
+export type SectionBgStyle = 'default' | 'white' | 'subtle' | 'tinted' | 'dark' | 'glass';
 
 export interface MedicalQualification {
   id: string;
-  degree: string; // e.g. بكالوريوس الطب والجراحة
-  institution: string; // e.g. جامعة الملك سعود
-  year: string; // e.g. 2012
+  degree: string;
+  degreeEn?: string;
+  institution: string;
+  institutionEn?: string;
+  year: string;
   isFellowship?: boolean;
 }
 
 export interface CareerMilestone {
   id: string;
-  role: string; // e.g. رئيس قسم القسطرة التداخلية
-  hospital: string; // e.g. مستشفى الملك فيصل التخصصي
-  period: string; // e.g. 2018 - الآن
+  role: string;
+  roleEn?: string;
+  hospital: string;
+  hospitalEn?: string;
+  period: string;
+  periodEn?: string;
   description?: string;
+  descriptionEn?: string;
 }
 
 export interface MedicalService {
   id: string;
   name: string;
+  nameEn?: string;
   description: string;
+  descriptionEn?: string;
   price?: number;
   durationMinutes?: number;
   insuranceAccepted?: boolean;
   category?: string;
+  categoryEn?: string;
+  iconName?: string;
 }
 
 export interface MedicalArticle {
   id: string;
   title: string;
+  titleEn?: string;
   excerpt: string;
+  excerptEn?: string;
   content: string;
+  contentEn?: string;
   readTimeMinutes: number;
   publishedDate: string;
   category: string;
+  categoryEn?: string;
 }
 
 export interface PatientFAQ {
   id: string;
   question: string;
+  questionEn?: string;
   answer: string;
+  answerEn?: string;
 }
 
 export interface PatientTestimonial {
   id: string;
   patientName: string;
+  patientNameEn?: string;
   rating: number; // 1 to 5
   comment: string;
+  commentEn?: string;
   date: string;
   treatmentType?: string;
+  treatmentTypeEn?: string;
+  verified?: boolean;
+  isApproved?: boolean;
 }
 
 export interface ClinicDetails {
   name: string;
+  nameEn?: string;
   city: string;
+  cityEn?: string;
   address: string;
+  addressEn?: string;
   phone: string;
   emergencyPhone?: string;
   whatsapp: string;
@@ -63,7 +88,9 @@ export interface ClinicDetails {
   googleMapsUrl?: string;
   workingHours: {
     days: string;
+    daysEn?: string;
     hours: string;
+    hoursEn?: string;
   }[];
 }
 
@@ -74,12 +101,41 @@ export interface DoctorSocialLinks {
   youtube?: string;
   facebook?: string;
   website?: string;
+  tiktok?: string;
 }
 
 export interface DoctorSEO {
   metaTitle: string;
+  metaTitleEn?: string;
   metaDescription: string;
+  metaDescriptionEn?: string;
   keywords: string[];
+}
+
+export interface CustomSectionItem {
+  id: string;
+  title: string;
+  titleEn?: string;
+  description: string;
+  descriptionEn?: string;
+  icon?: string;
+  tag?: string;
+}
+
+export interface CustomSection {
+  id: string;
+  title: string;
+  titleEn?: string;
+  subtitle?: string;
+  subtitleEn?: string;
+  type: 'cards' | 'text' | 'features' | 'logos' | 'timeline' | 'video';
+  bgStyle: SectionBgStyle;
+  content?: string;
+  contentEn?: string;
+  videoUrl?: string;
+  items: CustomSectionItem[];
+  isVisible: boolean;
+  order: number;
 }
 
 export interface SectionsVisibility {
@@ -93,6 +149,21 @@ export interface SectionsVisibility {
   faqs: boolean;
   testimonials: boolean;
   contact: boolean;
+  customSections?: boolean;
+}
+
+export interface SectionStyleConfig {
+  heroBg?: SectionBgStyle;
+  aboutBg?: SectionBgStyle;
+  servicesBg?: SectionBgStyle;
+  qualificationsBg?: SectionBgStyle;
+  clinicBg?: SectionBgStyle;
+  articlesBg?: SectionBgStyle;
+  faqsBg?: SectionBgStyle;
+  testimonialsBg?: SectionBgStyle;
+  customHexPrimary?: string;
+  customHexSecondary?: string;
+  borderRadius?: 'rounded-xl' | 'rounded-2xl' | 'rounded-3xl';
 }
 
 export interface DoctorProfile {
@@ -100,9 +171,12 @@ export interface DoctorProfile {
   slug: string;
   name: string; // Arabic name
   nameEn?: string; // English name
-  title: string; // e.g. استشارية جراحة القلب والقسطرة
+  title: string;
+  titleEn?: string;
   specialty: string;
+  specialtyEn?: string;
   subspecialties: string[];
+  subspecialtiesEn?: string[];
   licenseNumber: string;
   experienceYears: number;
   rating: number;
@@ -110,8 +184,11 @@ export interface DoctorProfile {
   avatarUrl: string;
   coverUrl: string;
   bio: string;
-  statement: string; // Personal statement / motto
+  bioEn?: string;
+  statement: string;
+  statementEn?: string;
   themeColor: ThemeColor;
+  customStyles?: SectionStyleConfig;
   status: DoctorStatus;
   qualifications: MedicalQualification[];
   experience: CareerMilestone[];
@@ -120,13 +197,14 @@ export interface DoctorProfile {
   articles: MedicalArticle[];
   faqs: PatientFAQ[];
   testimonials: PatientTestimonial[];
+  customSections?: CustomSection[];
   socialLinks: DoctorSocialLinks;
   seo: DoctorSEO;
   sectionsConfig: SectionsVisibility;
   authorId?: string;
   createdAt: string;
   updatedAt: string;
-  isDemo?: boolean; // marks if this record came from seed
+  isDemo?: boolean;
 }
 
 export interface ConsultationBooking {
@@ -139,9 +217,10 @@ export interface ConsultationBooking {
   preferredDate: string;
   preferredTime: string;
   consultationType: 'clinic' | 'virtual';
+  serviceName?: string;
   notes?: string;
   createdAt: string;
-  status: 'pending' | 'confirmed';
+  status: 'pending' | 'confirmed' | 'completed' | 'cancelled';
 }
 
 export interface AdminUser {

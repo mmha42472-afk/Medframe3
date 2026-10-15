@@ -10,10 +10,28 @@
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
     
+    <!-- Fail-safe redirection for GitHub Pages if deployed from root branch instead of /docs -->
+    <script>
+      (function() {
+        var host = window.location.hostname;
+        var path = window.location.pathname;
+        // If served on GitHub Pages root without compiled assets, redirect to /docs/ where production build lives
+        if (host.endsWith('github.io') && !path.includes('/docs/')) {
+          var parts = path.split('/').filter(Boolean);
+          var repo = parts.length > 0 ? '/' + parts[0] : '';
+          var target = repo + '/docs/' + window.location.search + window.location.hash;
+          // Check if we are running the uncompiled root index.html
+          if (!window.__VITE_PREVIEW__ && document.querySelector('script[src*="main.tsx"]')) {
+            window.location.replace(target);
+          }
+        }
+      })();
+    </script>
+
     <!-- Google Fonts for Arabic & Display Typography -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
     
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230d9488' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z'/><path d='M12 5v14'/><path d='M5 12h14'/></svg>" />
@@ -21,12 +39,22 @@
   <body class="bg-slate-50 text-slate-900 antialiased font-sans selection:bg-teal-500 selection:text-white min-h-screen">
     <div id="root">
       <div style="min-height: 100vh; display: flex; align-items: center; justify-content: center; font-family: 'Cairo', sans-serif; text-align: center; padding: 20px;">
-        <div style="background: white; border-radius: 1.5rem; padding: 2rem; border: 1px solid #e2e8f0; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.05); max-width: 400px; width: 100%;">
-          <div style="width: 48px; height: 48px; background: #0f766e; color: white; border-radius: 1rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 1rem auto; font-size: 24px;">⚕</div>
-          <h2 style="font-size: 1.125rem; font-weight: 700; color: #0f172a; margin: 0 0 0.5rem 0;">MedFrame Studio</h2>
-          <p style="font-size: 0.875rem; color: #64748b; margin: 0;">منصة بناء وإدارة مواقع الأطباء · جاري التحميل...</p>
+        <div style="background: white; border-radius: 1.5rem; padding: 2.5rem 2rem; border: 1px solid #e2e8f0; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.06); max-width: 420px; width: 100%;">
+          <div style="width: 52px; height: 52px; background: #0f766e; color: white; border-radius: 1.25rem; display: flex; align-items: center; justify-content: center; margin: 0 auto 1.25rem auto; font-size: 26px; box-shadow: 0 8px 16px -4px rgba(15,118,110,0.3);">⚕</div>
+          <h2 style="font-size: 1.25rem; font-weight: 800; color: #0f172a; margin: 0 0 0.5rem 0;">MedFrame Studio · ميد فريم</h2>
+          <p style="font-size: 0.875rem; color: #64748b; margin: 0 0 1.25rem 0; line-height: 1.6;">منصة بناء وإدارة مواقع الأطباء<br><span style="font-size: 0.75rem; color: #0d9488;">جاري تحميل النظام الطبي...</span></p>
+          <div style="height: 4px; width: 120px; background: #f1f5f9; border-radius: 9999px; margin: 0 auto; overflow: hidden;">
+            <div style="height: 100%; width: 50%; background: #0d9488; border-radius: 9999px; animation: loading 1.2s infinite ease-in-out;"></div>
+          </div>
         </div>
       </div>
+      <style>
+        @keyframes loading {
+          0% { transform: translateX(-100%); }
+          50% { transform: translateX(100%); }
+          100% { transform: translateX(300%); }
+        }
+      </style>
     </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

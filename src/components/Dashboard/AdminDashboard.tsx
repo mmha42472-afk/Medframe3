@@ -22,7 +22,9 @@ import {
   CheckCircle2,
   Stethoscope,
   Sparkles,
-  Share2
+  Share2,
+  Flame,
+  Github
 } from 'lucide-react';
 
 interface AdminDashboardProps {
@@ -39,6 +41,8 @@ interface AdminDashboardProps {
   onImportJSON: (jsonString: string) => void;
   onSyncCloud: () => void;
   isSyncing: boolean;
+  onOpenFirebaseModal?: () => void;
+  onOpenGitHubPagesModal?: () => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -54,7 +58,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onExportJSON,
   onImportJSON,
   onSyncCloud,
-  isSyncing
+  isSyncing,
+  onOpenFirebaseModal,
+  onOpenGitHubPagesModal
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'published' | 'draft'>('all');
@@ -146,6 +152,28 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
           {/* Action CTAs */}
           <div className="flex flex-wrap items-center gap-2.5">
+            {onOpenFirebaseModal && (
+              <button
+                onClick={onOpenFirebaseModal}
+                className="px-3.5 py-2 bg-amber-50 hover:bg-amber-100 border border-amber-200/80 text-amber-900 text-xs font-bold rounded-xl transition-colors flex items-center gap-1.5 shadow-2xs"
+                title="إعدادات مفاتيح فايربيس السحابية"
+              >
+                <Flame className="w-3.5 h-3.5 text-amber-600" />
+                <span>مفاتيح Firebase</span>
+              </button>
+            )}
+
+            {onOpenGitHubPagesModal && (
+              <button
+                onClick={onOpenGitHubPagesModal}
+                className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 shadow-2xs"
+                title="دليل النشر على GitHub Pages وحل الشاشة البيضاء"
+              >
+                <Github className="w-3.5 h-3.5 text-slate-800" />
+                <span>دليل GitHub Pages</span>
+              </button>
+            )}
+
             <button
               onClick={onExportJSON}
               className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 text-xs font-semibold rounded-xl transition-colors flex items-center gap-1.5 shadow-2xs"

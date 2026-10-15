@@ -25,6 +25,8 @@ import { DoctorDirectoryView } from './components/Public/DoctorDirectoryView';
 import { NotFoundView } from './components/Public/NotFoundView';
 import { AdminLoginModal } from './components/Auth/AdminLoginModal';
 import { NewDoctorModal } from './components/Builder/NewDoctorModal';
+import { FirebaseConfigModal } from './components/Common/FirebaseConfigModal';
+import { GitHubPagesModal } from './components/Common/GitHubPagesModal';
 import { 
   CheckCircle2, 
   AlertCircle, 
@@ -59,6 +61,8 @@ function MainApp() {
   // Modals state
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isNewDoctorModalOpen, setIsNewDoctorModalOpen] = useState(false);
+  const [isFirebaseModalOpen, setIsFirebaseModalOpen] = useState(false);
+  const [isGitHubPagesModalOpen, setIsGitHubPagesModalOpen] = useState(false);
 
   // Toast feedback
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -285,6 +289,7 @@ function MainApp() {
           isPreviewMode={false}
           onBackToDashboard={() => navigateTo('dashboard')}
           onEditDoctor={isAdmin ? () => handleEditDoctorInBuilder(activeDoctor) : undefined}
+          onUpdateDoctor={(updated) => handleSaveDoctor(updated)}
         />
         {/* Toast notifications */}
         <ToastContainer toasts={toasts} onCloseToast={(id) => setToasts(t => t.filter(x => x.id !== id))} />
@@ -315,6 +320,8 @@ function MainApp() {
           currentView={currentRoute.page as any}
           onNavigate={navigateTo}
           onOpenLoginModal={() => setIsLoginModalOpen(true)}
+          onOpenFirebaseModal={() => setIsFirebaseModalOpen(true)}
+          onOpenGitHubPagesModal={() => setIsGitHubPagesModalOpen(true)}
           isCloudLive={isCloudLive}
           onSyncCloud={handleSyncCloud}
           isSyncing={isSyncing}
@@ -345,6 +352,8 @@ function MainApp() {
               onImportJSON={handleImportJSON}
               onSyncCloud={handleSyncCloud}
               isSyncing={isSyncing}
+              onOpenFirebaseModal={() => setIsFirebaseModalOpen(true)}
+              onOpenGitHubPagesModal={() => setIsGitHubPagesModalOpen(true)}
             />
           )}
 
@@ -366,7 +375,7 @@ function MainApp() {
                 </p>
                 <button
                   onClick={() => navigateTo('dashboard')}
-                  className="px-5 py-2.5 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-xs font-bold transition-colors"
+                  className="px-5 py-2.5 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
                 >
                   العودة للوحة التحكم
                 </button>
@@ -395,11 +404,21 @@ function MainApp() {
             <span>منصة بناء وإدارة مواقع الأطباء</span>
           </div>
           <div className="flex items-center gap-4 text-[11px] text-slate-600">
-            <span>دعم كامل للغة العربية والـ RTL</span>
+            <button 
+              onClick={() => setIsGitHubPagesModalOpen(true)}
+              className="hover:text-teal-800 transition-colors underline cursor-pointer"
+            >
+              جاهز للنشر على GitHub Pages (دليل الشاشة البيضاء)
+            </button>
             <span>·</span>
-            <span>قواعد أمان Firestore مشددة</span>
+            <button 
+              onClick={() => setIsFirebaseModalOpen(true)}
+              className="hover:text-teal-800 transition-colors underline cursor-pointer"
+            >
+              إعدادات فايربيس السحابية
+            </button>
             <span>·</span>
-            <span>جاهز للنشر على GitHub Pages</span>
+            <span>دعم ثنائي للغة العربية والإنجليزية</span>
           </div>
         </div>
       </footer>
@@ -418,6 +437,17 @@ function MainApp() {
           setActiveDoctor(newDoc);
           navigateTo('builder');
         }}
+      />
+
+      <FirebaseConfigModal
+        isOpen={isFirebaseModalOpen}
+        onClose={() => setIsFirebaseModalOpen(false)}
+        onConfigSaved={() => loadDoctors()}
+      />
+
+      <GitHubPagesModal
+        isOpen={isGitHubPagesModalOpen}
+        onClose={() => setIsGitHubPagesModalOpen(false)}
       />
 
       {/* Floating Toast Container */}

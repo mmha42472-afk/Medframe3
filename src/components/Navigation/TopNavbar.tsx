@@ -9,7 +9,9 @@ import {
   UserCheck, 
   Menu, 
   X,
-  Stethoscope
+  Stethoscope,
+  Flame,
+  Github
 } from 'lucide-react';
 
 interface TopNavbarProps {
@@ -17,6 +19,8 @@ interface TopNavbarProps {
   onNavigate: (view: 'dashboard' | 'builder' | 'directory') => void;
   onOpenNewDoctorModal?: () => void;
   onOpenLoginModal: () => void;
+  onOpenFirebaseModal: () => void;
+  onOpenGitHubPagesModal: () => void;
   isCloudLive: boolean;
   onSyncCloud: () => void;
   isSyncing: boolean;
@@ -26,6 +30,8 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
   currentView,
   onNavigate,
   onOpenLoginModal,
+  onOpenFirebaseModal,
+  onOpenGitHubPagesModal,
   isCloudLive,
   onSyncCloud,
   isSyncing
@@ -36,19 +42,19 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-slate-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between gap-8 h-16">
+        <div className="flex items-center justify-between gap-6 h-16">
           
-          {/* Zone 1: Brand Wordmark (Single text element with domain medical icon) */}
+          {/* Zone 1: Brand Wordmark */}
           <div className="flex items-center gap-3 shrink-0">
             <button 
               onClick={() => onNavigate('dashboard')}
-              className="flex items-center gap-2.5 text-right focus:outline-none group"
+              className="flex items-center gap-2.5 text-right focus:outline-none group cursor-pointer"
             >
               <div className="w-10 h-10 rounded-xl bg-teal-800 text-white flex items-center justify-center shadow-sm group-hover:bg-teal-900 transition-colors">
                 <Stethoscope className="w-5 h-5" />
               </div>
               <div className="flex flex-col">
-                <span className="text-lg font-bold tracking-tight text-slate-900 whitespace-nowrap">
+                <span className="text-base sm:text-lg font-bold tracking-tight text-slate-900 whitespace-nowrap">
                   ميد فريم ستوديو
                 </span>
                 <span className="text-[10px] text-teal-800 font-medium tracking-wide uppercase font-mono">
@@ -57,32 +63,35 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
               </div>
             </button>
 
-            {/* Live Cloud vs Demo Badge */}
+            {/* Cloud Status Badge */}
             <div className="hidden sm:flex items-center mr-2">
               {isCloudLive ? (
-                <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs text-emerald-800 bg-emerald-50 rounded-md border border-emerald-200/60 font-medium whitespace-nowrap">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>
-                  سحابي مباشر (Firestore)
-                </span>
+                <button
+                  onClick={onOpenFirebaseModal}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs text-emerald-800 bg-emerald-50 hover:bg-emerald-100 rounded-lg border border-emerald-200/80 font-medium whitespace-nowrap cursor-pointer transition-colors"
+                  title="انقر لفتح إعدادات فايربيس السحابية"
+                >
+                  <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse"></span>
+                  <span>فايربيس متصل</span>
+                </button>
               ) : (
                 <button
-                  onClick={onSyncCloud}
-                  disabled={isSyncing}
-                  className="inline-flex items-center gap-1.5 px-2 py-0.5 text-xs text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-md border border-amber-200/60 transition-colors cursor-pointer font-medium whitespace-nowrap"
-                  title="انقر لمزامنة البيانات التجريبية إلى سحابة فايربيس"
+                  onClick={onOpenFirebaseModal}
+                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-lg border border-amber-200/80 font-medium whitespace-nowrap cursor-pointer transition-colors"
+                  title="انقر لربط أو فحص مفاتيح فايربيس الخاصة بك"
                 >
-                  <Database className="w-3 h-3 text-amber-600" />
-                  {isSyncing ? 'جارٍ المزامنة...' : 'بيانات محلية (مزامنة للسحابة)'}
+                  <Flame className="w-3.5 h-3.5 text-amber-600" />
+                  <span>إعدادات السحابة (Firebase)</span>
                 </button>
               )}
             </div>
           </div>
 
-          {/* Zone 2: Navigation Links (Clean single-line text links) */}
-          <nav className="hidden md:flex items-center gap-7 text-sm font-medium text-slate-600">
+          {/* Zone 2: Navigation Links */}
+          <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-slate-600">
             <button
               onClick={() => onNavigate('dashboard')}
-              className={`hover:text-teal-900 transition-colors whitespace-nowrap shrink-0 py-1 border-b-2 ${
+              className={`hover:text-teal-900 transition-colors whitespace-nowrap shrink-0 py-1 border-b-2 cursor-pointer ${
                 currentView === 'dashboard' ? 'text-teal-900 border-teal-700 font-semibold' : 'border-transparent'
               }`}
             >
@@ -90,34 +99,45 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
             </button>
             <button
               onClick={() => onNavigate('directory')}
-              className={`hover:text-teal-900 transition-colors whitespace-nowrap shrink-0 py-1 border-b-2 ${
+              className={`hover:text-teal-900 transition-colors whitespace-nowrap shrink-0 py-1 border-b-2 cursor-pointer ${
                 currentView === 'directory' ? 'text-teal-900 border-teal-700 font-semibold' : 'border-transparent'
               }`}
             >
-              دليل المواقع الطبية
+              دليل الأطباء
             </button>
             {isAdmin && (
               <button
                 onClick={() => onNavigate('builder')}
-                className={`hover:text-teal-900 transition-colors whitespace-nowrap shrink-0 py-1 border-b-2 ${
+                className={`hover:text-teal-900 transition-colors whitespace-nowrap shrink-0 py-1 border-b-2 cursor-pointer ${
                   currentView === 'builder' ? 'text-teal-900 border-teal-700 font-semibold' : 'border-transparent'
                 }`}
               >
                 محرر المواقع
               </button>
             )}
-            <a
-              href="#/doctor/dr-sara-mansouri"
-              className="text-slate-500 hover:text-slate-800 transition-colors inline-flex items-center gap-1 whitespace-nowrap shrink-0"
-              target="_blank"
-              rel="noreferrer"
+
+            {/* GitHub Pages Deploy Help */}
+            <button
+              onClick={onOpenGitHubPagesModal}
+              className="text-slate-600 hover:text-slate-900 transition-colors inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-slate-100 text-xs font-semibold cursor-pointer"
+              title="دليل حل الشاشة البيضاء والنشر على GitHub Pages"
             >
-              <span>معاينة موقع حي</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </a>
+              <Github className="w-3.5 h-3.5" />
+              <span>نشر GitHub Pages</span>
+            </button>
+
+            {/* Firebase API Settings */}
+            <button
+              onClick={onOpenFirebaseModal}
+              className="text-slate-600 hover:text-slate-900 transition-colors inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg hover:bg-slate-100 text-xs font-semibold cursor-pointer"
+              title="إعدادات مفاتيح فايربيس السحابية"
+            >
+              <Flame className="w-3.5 h-3.5 text-amber-500" />
+              <span>مفاتيح Firebase</span>
+            </button>
           </nav>
 
-          {/* Zone 3: 1 Primary Action (Auth control / profile) */}
+          {/* Zone 3: Auth control / profile */}
           <div className="flex items-center gap-3 shrink-0">
             {isAdmin ? (
               <div className="flex items-center gap-3">
@@ -132,7 +152,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
                 </div>
                 <button
                   onClick={logout}
-                  className="p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+                  className="p-2 text-slate-500 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
                   title="تسجيل الخروج"
                 >
                   <LogOut className="w-4 h-4" />
@@ -141,7 +161,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
             ) : (
               <button
                 onClick={onOpenLoginModal}
-                className="px-4 py-2 text-xs font-medium text-white bg-teal-800 rounded-lg hover:bg-teal-900 shadow-sm transition-colors whitespace-nowrap shrink-0 inline-flex items-center gap-1.5"
+                className="px-4 py-2 text-xs font-medium text-white bg-teal-800 rounded-lg hover:bg-teal-900 shadow-sm transition-colors whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 cursor-pointer"
               >
                 <UserCheck className="w-4 h-4" />
                 <span>دخول المشرف (Admin)</span>
@@ -151,7 +171,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
             {/* Mobile menu trigger */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="md:hidden p-2 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100"
+              className="md:hidden p-2 text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-100 cursor-pointer"
               aria-label="القائمة"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -180,7 +200,7 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
             }}
             className="w-full text-right px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50 rounded-lg"
           >
-            دليل المواقع الطبية العامة
+            دليل الأطباء العام
           </button>
           {isAdmin && (
             <button
@@ -195,12 +215,23 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
           )}
           <button
             onClick={() => {
-              onSyncCloud();
+              onOpenFirebaseModal();
               setMobileMenuOpen(false);
             }}
-            className="w-full text-right px-3 py-2 text-sm font-medium text-teal-800 bg-teal-50 hover:bg-teal-100 rounded-lg"
+            className="w-full text-right px-3 py-2 text-sm font-medium text-amber-900 bg-amber-50 rounded-lg flex items-center gap-2"
           >
-            مزامنة البيانات السحابية (Firestore)
+            <Flame className="w-4 h-4 text-amber-600" />
+            <span>إعدادات مفاتيح فايربيس السحابية</span>
+          </button>
+          <button
+            onClick={() => {
+              onOpenGitHubPagesModal();
+              setMobileMenuOpen(false);
+            }}
+            className="w-full text-right px-3 py-2 text-sm font-medium text-slate-800 bg-slate-50 rounded-lg flex items-center gap-2"
+          >
+            <Github className="w-4 h-4 text-slate-700" />
+            <span>دليل النشر على GitHub Pages</span>
           </button>
         </div>
       )}
