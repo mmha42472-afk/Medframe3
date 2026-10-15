@@ -76,11 +76,31 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [showFirebaseSettings, setShowFirebaseSettings] = useState(false);
   const [photoError, setPhotoError] = useState('');
+  const [firebaseDraft, setFirebaseDraft] = useState({ ...firebaseConfig });
 
   // Subspecialty tag input helper
   const [subspecialtyInput, setSubspecialtyInput] = useState('');
 
   const currentTheme = getTheme(doctor.themeColor);
+
+  const downloadFirebaseEnv = () => {
+    const rows = [
+      ['VITE_FIREBASE_API_KEY', firebaseDraft.apiKey],
+      ['VITE_FIREBASE_AUTH_DOMAIN', firebaseDraft.authDomain],
+      ['VITE_FIREBASE_PROJECT_ID', firebaseDraft.projectId],
+      ['VITE_FIREBASE_STORAGE_BUCKET', firebaseDraft.storageBucket],
+      ['VITE_FIREBASE_MESSAGING_SENDER_ID', firebaseDraft.messagingSenderId],
+      ['VITE_FIREBASE_APP_ID', firebaseDraft.appId],
+      ['VITE_FIREBASE_FIRESTORE_DATABASE_ID', firebaseDraft.firestoreDatabaseId]
+    ];
+    const envText = rows.map(([key, value]) => `${key}="${String(value || '').replace(/"/g, '\\"')}"`).join('\n') + '\n';
+    const url = URL.createObjectURL(new Blob([envText], { type: 'text/plain;charset=utf-8' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = '.env';
+    link.click();
+    URL.revokeObjectURL(url);
+  };
 
   const handleFieldChange = <K extends keyof DoctorProfile>(field: K, value: DoctorProfile[K]) => {
     setDoctor(prev => ({ ...prev, [field]: value }));
@@ -1439,17 +1459,18 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                 <div><p className="text-sm font-bold text-slate-900">{isFirebaseReady ? 'Firebase مهيأ في هذا الإصدار' : 'Firebase غير مهيأ'}</p><p className="mt-1 text-xs text-slate-600">{isFirebaseReady ? `المشروع: ${firebaseConfig.projectId}` : 'أضف بيانات مشروعك في متغيرات البيئة ثم أعد البناء.'}</p></div>
                 <span className={`rounded-full px-3 py-1 text-[11px] font-bold ${isFirebaseReady ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{isFirebaseReady ? 'متصل' : 'يحتاج إعداداً'}</span>
               </div>
-              <div className="space-y-2">
-                <p className="text-xs font-bold text-slate-800">إعدادات البيئة المطلوبة</p>
-                <div className="grid gap-2 sm:grid-cols-2">{[
-                  ['VITE_FIREBASE_API_KEY', firebaseConfig.apiKey],
-                  ['VITE_FIREBASE_PROJECT_ID', firebaseConfig.projectId],
-                  ['VITE_FIREBASE_AUTH_DOMAIN', firebaseConfig.authDomain],
-                  ['VITE_FIREBASE_APP_ID', firebaseConfig.appId],
-                  ['VITE_FIREBASE_STORAGE_BUCKET', firebaseConfig.storageBucket],
-                  ['VITE_FIREBASE_MESSAGING_SENDER_ID', firebaseConfig.messagingSenderId],
-                  ['VITE_FIREBASE_FIRESTORE_DATABASE_ID', firebaseConfig.firestoreDatabaseId]
-                ].map(([label, value]) => <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"><p className="text-[10px] font-bold text-slate-500">{label}</p><p className="mt-1 truncate font-mono text-[11px] text-slate-800" title={value}>{value ? 'مضبوط في إعدادات البناء' : 'غير مضبوط'}</p></div>)}</div>
+              <div className="space-y-3">
+                <div><p className="text-xs font-bold text-slate-800">بيانات مشروع Firebase</p><p className="mt-1 text-[11px] text-slate-500">أدخل بيانات تطبيق الويب. تُستخدم لإنشاء ملف إعداد محلي؛ لا تُحفظ على الخادم.</p></div>
+                <div className="grid gap-2 sm:grid-cols-2">{([
+                  ['apiKey', 'VITE_FIREBASE_API_KEY'],
+                  ['projectId', 'VITE_FIREBASE_PROJECT_ID'],
+                  ['authDomain', 'VITE_FIREBASE_AUTH_DOMAIN'],
+                  ['appId', 'VITE_FIREBASE_APP_ID'],
+                  ['storageBucket', 'VITE_FIREBASE_STORAGE_BUCKET'],
+                  ['messagingSenderId', 'VITE_FIREBASE_MESSAGING_SENDER_ID'],
+                  ['firestoreDatabaseId', 'VITE_FIREBASE_FIRESTORE_DATABASE_ID']
+                ] as const).map(([field, label]) => <label key={field} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2"><span className="block text-[10px] font-bold text-slate-500">{label}</span><input type={field === 'apiKey' ? 'password' : 'text'} autoComplete="off" spellCheck={false} value={firebaseDraft[field] || ''} onChange={(event) => setFirebaseDraft(prev => ({ ...prev, [field]: event.target.value }))} className="mt-1 w-full bg-transparent font-mono text-[11px] text-slate-800 outline-none" placeholder="أدخل القيمة" /></label>)}</div>
+                <button type="button" onClick={downloadFirebaseEnv} className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-teal-800 px-4 py-3 text-xs font-bold text-white hover:bg-teal-900"><Cloud className="h-4 w-4" />تنزيل ملف .env للإعدادات</button>
               </div>
               <div className="rounded-2xl bg-slate-900 p-4 text-white">
                 <p className="text-xs font-bold">طريقة الربط</p>
