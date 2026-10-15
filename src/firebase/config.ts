@@ -35,30 +35,39 @@ export const STORAGE_KEY_CUSTOM_FIREBASE = 'medframe_custom_firebase_config_v2';
  */
 export function getActiveFirebaseConfig(): FirebaseConfigParams {
   try {
-    const saved = localStorage.getItem(STORAGE_KEY_CUSTOM_FIREBASE);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      if (parsed.apiKey && parsed.projectId) {
-        // If user changed to their own custom project but firestoreDatabaseId is the studio template ID,
-        // use '(default)' database because standard projects do not have this custom database ID.
-        if (parsed.projectId !== DEFAULT_FIREBASE_CONFIG.projectId && parsed.firestoreDatabaseId === DEFAULT_FIREBASE_CONFIG.firestoreDatabaseId) {
-          parsed.firestoreDatabaseId = '(default)';
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      const saved = localStorage.getItem(STORAGE_KEY_CUSTOM_FIREBASE);
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.apiKey && parsed.projectId) {
+          // If project matches the built-in provisioned project, ALWAYS enforce the provisioned database ID
+          if (parsed.projectId === DEFAULT_FIREBASE_CONFIG.projectId) {
+            parsed.firestoreDatabaseId = DEFAULT_FIREBASE_CONFIG.firestoreDatabaseId;
+          } else if (!parsed.firestoreDatabaseId) {
+            parsed.firestoreDatabaseId = '(default)';
+          }
+          return parsed;
         }
-        return parsed;
       }
     }
   } catch (e) {
     console.warn('Could not read custom Firebase config from localStorage:', e);
   }
 
+  const env = (typeof import.meta !== 'undefined' && import.meta?.env) ? import.meta.env : ({} as Record<string, string>);
+  const activeProjectId = env.VITE_FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_CONFIG.projectId;
+  const isDefaultProject = activeProjectId === DEFAULT_FIREBASE_CONFIG.projectId;
+
   return {
-    projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || DEFAULT_FIREBASE_CONFIG.projectId,
-    appId: import.meta.env.VITE_FIREBASE_APP_ID || DEFAULT_FIREBASE_CONFIG.appId,
-    apiKey: import.meta.env.VITE_FIREBASE_API_KEY || DEFAULT_FIREBASE_CONFIG.apiKey,
-    authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || DEFAULT_FIREBASE_CONFIG.authDomain,
-    firestoreDatabaseId: import.meta.env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || DEFAULT_FIREBASE_CONFIG.firestoreDatabaseId,
-    storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET || DEFAULT_FIREBASE_CONFIG.storageBucket,
-    messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID || DEFAULT_FIREBASE_CONFIG.messagingSenderId,
+    projectId: activeProjectId,
+    appId: env.VITE_FIREBASE_APP_ID || DEFAULT_FIREBASE_CONFIG.appId,
+    apiKey: env.VITE_FIREBASE_API_KEY || DEFAULT_FIREBASE_CONFIG.apiKey,
+    authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || DEFAULT_FIREBASE_CONFIG.authDomain,
+    firestoreDatabaseId: isDefaultProject 
+      ? DEFAULT_FIREBASE_CONFIG.firestoreDatabaseId 
+      : (env.VITE_FIREBASE_FIRESTORE_DATABASE_ID || '(default)'),
+    storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || DEFAULT_FIREBASE_CONFIG.storageBucket,
+    messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID || DEFAULT_FIREBASE_CONFIG.messagingSenderId,
   };
 }
 

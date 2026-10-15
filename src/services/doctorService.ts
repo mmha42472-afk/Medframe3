@@ -54,22 +54,17 @@ function setLocalCustomDoctors(doctors: DoctorProfile[]): void {
 export async function getDoctorsList(isAdmin: boolean = false): Promise<LoadResult> {
   const localItems = getLocalCustomDoctors();
 
-  // Try Firestore only if ready
+  // Try Firestore if ready
   if (db && isFirebaseReady) {
     try {
       const doctorsRef = collection(db, COLLECTION_NAME);
-      let q;
+      const q = isAdmin 
+        ? query(doctorsRef) 
+        : query(doctorsRef, where('status', '==', 'published'));
 
-      if (isAdmin) {
-        q = query(doctorsRef);
-      } else {
-        q = query(doctorsRef, where('status', '==', 'published'));
-      }
-
-      // Add a 2s timeout race to guarantee fast boot
       const fetchPromise = getDocs(q);
       const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('timeout')), 2000)
+        setTimeout(() => reject(new Error('timeout')), 6000)
       );
 
       const snapshot = await Promise.race([fetchPromise, timeoutPromise]);
@@ -80,14 +75,34 @@ export async function getDoctorsList(isAdmin: boolean = false): Promise<LoadResu
       });
 
       if (cloudDoctors.length > 0) {
+        // Merge any local items that might not have synced yet
+        const merged = [...cloudDoctors];
+        localItems.forEach(localItem => {
+          const idx = merged.findIndex(d => d.id === localItem.id);
+          if (idx >= 0) {
+            // Keep the one with newer updatedAt
+            const localTime = new Date(localItem.updatedAt || 0).getTime();
+            const cloudTime = new Date(merged[idx].updatedAt || 0).getTime();
+            if (localTime > cloudTime) {
+              merged[idx] = localItem;
+            }
+          } else {
+            merged.unshift(localItem);
+          }
+        });
+
+        const finalDoctors = isAdmin 
+          ? merged 
+          : merged.filter(d => d.status === 'published');
+
         return {
-          doctors: cloudDoctors,
+          doctors: finalDoctors,
           source: 'cloud',
           liveSynced: true
         };
       }
-    } catch {
-      // Fallback seamlessly to local and demo data
+    } catch (e) {
+      console.warn('Firestore load notice (falling back to local/demo):', e);
     }
   }
 
@@ -117,7 +132,6 @@ export async function getDoctorsList(isAdmin: boolean = false): Promise<LoadResu
 }
 
 /**
-/**
  * Normalizes slug candidates for resilient matching
  */
 function getSlugVariants(slug: string): string[] {
@@ -135,61 +149,57 @@ function getSlugVariants(slug: string): string[] {
 /**
  * Fetches a single doctor by URL slug.
  * Gated: Public visitors CANNOT view if status !== 'published'.
+ * Local-First for 0ms instant loading, with reliable Firestore cloud fallback.
  */
 export async function getDoctorBySlug(slug: string, isAdmin: boolean = false): Promise<DoctorProfile | null> {
   if (!slug) return null;
   const variants = getSlugVariants(slug);
 
-  // 1. Try fetching from Firestore if ready
-  if (db && isFirebaseReady) {
-    for (const v of variants) {
-      try {
-        const doctorsRef = collection(db, COLLECTION_NAME);
-        const q = query(doctorsRef, where('slug', '==', v));
-        
-        const fetchPromise = getDocs(q);
-        const timeoutPromise = new Promise<never>((_, reject) => 
-          setTimeout(() => reject(new Error('timeout')), 2000)
-        );
-
-        const snapshot = await Promise.race([fetchPromise, timeoutPromise]);
-
-        if (!snapshot.empty) {
-          const docData = snapshot.docs[0].data() as DoctorProfile;
-          if (docData.status === 'published' || isAdmin) {
-            return docData;
-          }
-        }
-      } catch {
-        // Fallback to cache and demo
-      }
-    }
-  }
-
-  // 2. Check local modifications
+  // 1. Instant check: local custom modifications (0ms, offline-first)
   const localList = getLocalCustomDoctors();
-  const localMatch = localList.find(d => variants.includes(d.slug));
+  const localMatch = localList.find(d => variants.includes(d.slug.toLowerCase()));
   if (localMatch) {
     if (localMatch.status === 'published' || isAdmin) {
       return localMatch;
     }
-    return null;
   }
 
-  // 3. Check demo doctors
-  const demoMatch = DEMO_DOCTORS.find(d => variants.includes(d.slug));
+  // 2. Instant check: demo doctors
+  const demoMatch = DEMO_DOCTORS.find(d => variants.includes(d.slug.toLowerCase()));
   if (demoMatch) {
     if (demoMatch.status === 'published' || isAdmin) {
       return demoMatch;
     }
-    return null;
+  }
+
+  // 3. Cloud Firestore query (vital for public visitors and new devices)
+  if (db && isFirebaseReady) {
+    try {
+      const doctorsRef = collection(db, COLLECTION_NAME);
+      const q = query(doctorsRef, where('slug', 'in', variants.slice(0, 10)));
+      
+      const fetchPromise = getDocs(q);
+      const timeoutPromise = new Promise<never>((_, reject) => 
+        setTimeout(() => reject(new Error('timeout')), 8000)
+      );
+
+      const snapshot = await Promise.race([fetchPromise, timeoutPromise]);
+      if (!snapshot.empty) {
+        const docData = snapshot.docs[0].data() as DoctorProfile;
+        if (docData.status === 'published' || isAdmin) {
+          return docData;
+        }
+      }
+    } catch (e) {
+      console.warn('Firestore fetch slug query error:', e);
+    }
   }
 
   return null;
 }
 
 /**
- * Finds doctor by slug regardless of draft or published status (used for helpful resolution in 404 views)
+ * Finds doctor by slug regardless of draft or published status (used for helpful resolution in 404 / draft views)
  */
 export async function findDoctorAnyStatus(slug: string): Promise<DoctorProfile | null> {
   if (!slug) return null;
@@ -197,24 +207,24 @@ export async function findDoctorAnyStatus(slug: string): Promise<DoctorProfile |
 
   // 1. Check local modifications first
   const localList = getLocalCustomDoctors();
-  const localMatch = localList.find(d => variants.includes(d.slug));
+  const localMatch = localList.find(d => variants.includes(d.slug.toLowerCase()));
   if (localMatch) return localMatch;
 
   // 2. Check demo doctors
-  const demoMatch = DEMO_DOCTORS.find(d => variants.includes(d.slug));
+  const demoMatch = DEMO_DOCTORS.find(d => variants.includes(d.slug.toLowerCase()));
   if (demoMatch) return demoMatch;
 
   // 3. Check Firestore
   if (db && isFirebaseReady) {
-    for (const v of variants) {
-      try {
-        const doctorsRef = collection(db, COLLECTION_NAME);
-        const q = query(doctorsRef, where('slug', '==', v));
-        const snapshot = await getDocs(q);
-        if (!snapshot.empty) {
-          return snapshot.docs[0].data() as DoctorProfile;
-        }
-      } catch {}
+    try {
+      const doctorsRef = collection(db, COLLECTION_NAME);
+      const q = query(doctorsRef, where('slug', 'in', variants.slice(0, 10)));
+      const snapshot = await getDocs(q);
+      if (!snapshot.empty) {
+        return snapshot.docs[0].data() as DoctorProfile;
+      }
+    } catch (e) {
+      console.warn('Firestore findDoctorAnyStatus error:', e);
     }
   }
 
@@ -230,8 +240,8 @@ export function formatFirestoreErrorMessage(error: unknown): string {
   if (str.includes('permission-denied') || str.includes('insufficient permissions')) {
     return 'قواعد أمان فايربيس تتطلب تسجيل الدخول كمسؤول أولاً. (يجب تفعيل Email/Password في Firebase Console وتسجيل الدخول كمسؤول).';
   }
-  if (str.includes('not-found')) {
-    return 'لم يتم العثور على قاعدة البيانات المحددة. تأكد من ضبط Firestore Database ID على (default) في إعدادات فايربيس.';
+  if (str.includes('not-found') || str.includes('NOT_FOUND')) {
+    return 'قاعدة بيانات Firestore المحددة غير موجودة في هذا المشروع أو تم تغيير معرف قاعدة البيانات.';
   }
   if (str.includes('unavailable') || str.includes('client is offline')) {
     return 'خوادم فايربيس غير متاحة حالياً أو الجهاز غير متصل بالإنترنت.';

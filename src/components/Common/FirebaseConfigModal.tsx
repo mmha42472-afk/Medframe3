@@ -249,12 +249,14 @@ VITE_FIREBASE_APP_ID="${config.appId || ''}"`;
               </label>
               <input
                 type="text"
-                value={config.firestoreDatabaseId || '(default)'}
+                value={config.firestoreDatabaseId || DEFAULT_FIREBASE_CONFIG.firestoreDatabaseId}
                 onChange={(e) => setConfig({ ...config, firestoreDatabaseId: e.target.value })}
-                placeholder="(default) أو اسم مخصص"
+                placeholder={DEFAULT_FIREBASE_CONFIG.firestoreDatabaseId || "ai-studio-98b8adb8-741c-4553-a4f5-5a1ce211c9c0"}
                 className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono text-xs focus:ring-2 focus:ring-teal-700 focus:bg-white transition-all text-left dir-ltr"
               />
-              <p className="text-[10px] text-slate-400">اتركها (default) إذا لم تنشئ قاعدة بيانات ثانوية.</p>
+              <p className="text-[10px] text-teal-700 font-medium">
+                معرف قاعدة بيانات هذا المشروع: <span className="font-mono">{DEFAULT_FIREBASE_CONFIG.firestoreDatabaseId}</span>
+              </p>
             </div>
 
             {/* Storage Bucket */}

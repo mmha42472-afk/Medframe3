@@ -31,6 +31,7 @@ export const NewDoctorModal: React.FC<NewDoctorModalProps> = ({
   const [phone, setPhone] = useState('+966 11 000 0000');
   const [themeColor, setThemeColor] = useState<ThemeColor>('teal');
   const [status, setStatus] = useState<'draft' | 'published'>('published');
+  const [customSlug, setCustomSlug] = useState('');
 
   if (!isOpen) return null;
 
@@ -38,11 +39,16 @@ export const NewDoctorModal: React.FC<NewDoctorModalProps> = ({
     e.preventDefault();
     if (!name.trim() || !specialty.trim()) return;
 
-    // Clean English name and generate single-prefix slug
-    const cleanEn = nameEn.trim().toLowerCase().replace(/^(dr[-_.\s]*)+/g, '');
-    const baseSlug = cleanEn
-      ? `dr-${cleanEn.replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '')}`
-      : `dr-${Date.now().toString().slice(-6)}`;
+    // Resilient slug generation
+    let baseSlug = customSlug.trim().toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+    if (!baseSlug || baseSlug === 'dr' || baseSlug === 'dr-') {
+      const cleanEn = nameEn.trim().toLowerCase().replace(/^(dr[-_.\s]*)+/g, '');
+      const candidate = cleanEn.replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+      baseSlug = candidate ? `dr-${candidate}` : `dr-${Date.now().toString().slice(-6)}`;
+    }
+    if (!baseSlug.startsWith('dr-')) {
+      baseSlug = `dr-${baseSlug}`;
+    }
 
     const newDoctor: DoctorProfile = {
       id: `doc-${Date.now()}`,
