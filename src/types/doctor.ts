@@ -212,6 +212,9 @@ export interface DoctorProfile {
   statement: string;
   statementEn?: string;
   themeColor: ThemeColor;
+  heroIcon?: string; // e.g. 'shield' | 'stethoscope' | 'heart' | 'award' | 'sparkles' | 'activity' | 'eye' | 'tooth' | 'brain' | 'baby' | 'bone' | 'pill' | 'building'
+  heroBadgeText?: string;
+  heroBadgeTextEn?: string;
   customStyles?: SectionStyleConfig;
   status: DoctorStatus;
   qualifications: MedicalQualification[];

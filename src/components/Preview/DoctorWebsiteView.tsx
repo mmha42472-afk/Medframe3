@@ -3,6 +3,7 @@ import { DoctorProfile, PatientTestimonial, DoctorPhoto } from '../../types/doct
 import { getTheme, getSectionBgClasses } from '../../utils/theme';
 import { useAuth } from '../../context/AuthContext';
 import { DoctorAvatar } from '../Common/DoctorAvatar';
+import { MedicalHeroIcon } from '../Common/MedicalHeroIcon';
 import { AppointmentModal } from './AppointmentModal';
 import { AddReviewModal } from './AddReviewModal';
 import { 
@@ -362,7 +363,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
               className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 shadow-xs"
               style={{ background: theme.primary }}
             >
-              <Stethoscope className="w-5 h-5" />
+              <MedicalHeroIcon iconId={doctor.heroIcon || 'stethoscope'} className="w-5 h-5 text-white" />
             </div>
             <div>
               <span className="font-bold text-slate-900 text-sm sm:text-base block leading-tight">
@@ -430,9 +431,13 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
                 
                 {/* Accreditation & License Kicker */}
                 <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                  <span className="inline-flex items-center gap-1 font-semibold text-teal-800">
-                    <ShieldCheck className="w-4 h-4 text-teal-700" />
-                    <span>{isEn ? 'Officially Licensed & Certified' : 'مرخص ومعتمد رسمياً'}</span>
+                  <span className="inline-flex items-center gap-1.5 font-semibold text-teal-800">
+                    <MedicalHeroIcon iconId={doctor.heroIcon || 'shield'} className="w-4 h-4 text-teal-700" />
+                    <span>
+                      {isEn 
+                        ? (doctor.heroBadgeTextEn || (doctor.heroBadgeText ? doctor.heroBadgeText : 'Officially Licensed & Certified')) 
+                        : (doctor.heroBadgeText || 'مرخص ومعتمد رسمياً')}
+                    </span>
                   </span>
                   <span aria-hidden="true" className="text-slate-300">·</span>
                   <span>{isEn ? 'License No:' : 'رقم التسجيل:'} {doctor.licenseNumber}</span>

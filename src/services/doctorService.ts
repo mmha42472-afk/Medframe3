@@ -46,16 +46,31 @@ export function normalizeDoctorProfile(raw: any): DoctorProfile {
     bio: raw.bio || '',
     statement: raw.statement || '',
     themeColor: raw.themeColor || 'teal',
+    heroIcon: raw.heroIcon || 'shield',
+    heroBadgeText: raw.heroBadgeText || '',
+    heroBadgeTextEn: raw.heroBadgeTextEn || '',
     status: raw.status === 'draft' ? 'draft' : 'published',
     qualifications: Array.isArray(raw.qualifications) ? raw.qualifications : [],
     experience: Array.isArray(raw.experience) ? raw.experience : [],
     clinic: {
       name: raw.clinic?.name || 'العيادة الطبية',
+      nameEn: raw.clinic?.nameEn || '',
       city: raw.clinic?.city || 'الرياض',
+      cityEn: raw.clinic?.cityEn || '',
       address: raw.clinic?.address || '',
+      addressEn: raw.clinic?.addressEn || '',
       phone: raw.clinic?.phone || '',
+      emergencyPhone: raw.clinic?.emergencyPhone || '',
       whatsapp: raw.clinic?.whatsapp || '',
-      workingHours: Array.isArray(raw.clinic?.workingHours) ? raw.clinic.workingHours : []
+      bookingUrl: raw.clinic?.bookingUrl || '',
+      googleMapsUrl: raw.clinic?.googleMapsUrl || '',
+      workingHours: Array.isArray(raw.clinic?.workingHours) && raw.clinic.workingHours.length > 0
+        ? raw.clinic.workingHours
+        : [
+            { days: 'السبت - الأربعاء', daysEn: 'Sat - Wed', hours: '9:00 ص - 9:00 م', hoursEn: '9:00 AM - 9:00 PM' },
+            { days: 'الخميس', daysEn: 'Thursday', hours: '9:00 ص - 3:00 م', hoursEn: '9:00 AM - 3:00 PM' },
+            { days: 'الجمعة', daysEn: 'Friday', hours: 'مغلق (حالات الطوارئ فقط)', hoursEn: 'Closed (Emergency Only)' }
+          ]
     },
     services: Array.isArray(raw.services) ? raw.services : [],
     photos: Array.isArray(raw.photos) ? raw.photos : [],
