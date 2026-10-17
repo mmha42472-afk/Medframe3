@@ -58,15 +58,28 @@ export function normalizeDoctorProfile(raw: any): DoctorProfile {
       workingHours: Array.isArray(raw.clinic?.workingHours) ? raw.clinic.workingHours : []
     },
     services: Array.isArray(raw.services) ? raw.services : [],
+    photos: Array.isArray(raw.photos) ? raw.photos : [],
     articles: Array.isArray(raw.articles) ? raw.articles : [],
     faqs: Array.isArray(raw.faqs) ? raw.faqs : [],
     testimonials: Array.isArray(raw.testimonials) ? raw.testimonials : [],
+    customSections: Array.isArray(raw.customSections) ? raw.customSections : [],
     socialLinks: raw.socialLinks || {},
     seo: raw.seo || { metaTitle: raw.name || '', metaDescription: '', keywords: [] },
-    sectionsConfig: raw.sectionsConfig || {
-      hero: true, about: true, qualifications: true, experience: true,
-      services: true, clinic: true, articles: true, faqs: true, testimonials: true, contact: true
+    sectionsConfig: {
+      hero: raw.sectionsConfig?.hero ?? true,
+      about: raw.sectionsConfig?.about ?? true,
+      qualifications: raw.sectionsConfig?.qualifications ?? true,
+      experience: raw.sectionsConfig?.experience ?? true,
+      services: raw.sectionsConfig?.services ?? true,
+      clinic: raw.sectionsConfig?.clinic ?? true,
+      gallery: raw.sectionsConfig?.gallery ?? (Array.isArray(raw.photos) && raw.photos.length > 0),
+      articles: raw.sectionsConfig?.articles ?? true,
+      faqs: raw.sectionsConfig?.faqs ?? true,
+      testimonials: raw.sectionsConfig?.testimonials ?? true,
+      contact: raw.sectionsConfig?.contact ?? true,
     },
+    customStyles: raw.customStyles || {},
+    avatarSize: raw.avatarSize || 'xl',
     createdAt: raw.createdAt || new Date().toISOString(),
     updatedAt: raw.updatedAt || new Date().toISOString(),
     isDemo: Boolean(raw.isDemo)

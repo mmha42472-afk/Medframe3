@@ -33,7 +33,8 @@ import {
   CheckCircle2, 
   AlertCircle, 
   X,
-  Stethoscope
+  Stethoscope,
+  Lock
 } from 'lucide-react';
 
 interface ToastMessage {
@@ -102,8 +103,28 @@ function MainApp() {
       return { page: 'builder' as const };
     }
 
+    if (hash === '#/dashboard' || hash === '#/admin' || hash === '#admin') {
+      return { page: 'dashboard' as const };
+    }
+
+    // 3. In-page section anchors like #clinic-schedule, #about, #services, #clinic-gallery
+    // Prevent kicking the visitor back to dashboard when clicking in-page anchor links!
+    if (hash.startsWith('#') && !hash.startsWith('#/')) {
+      if (activeDoctor) {
+        return { page: 'doctor' as const, slug: activeDoctor.slug };
+      }
+    }
+
+    // 4. Default landing: If public visitor (not admin) visits root URL, show first published doctor website!
+    if (!isAdmin && doctors.length > 0) {
+      const publishedDoc = doctors.find(d => d.status === 'published');
+      if (publishedDoc) {
+        return { page: 'doctor' as const, slug: publishedDoc.slug };
+      }
+    }
+
     return { page: 'dashboard' as const };
-  }, []);
+  }, [activeDoctor, isAdmin, doctors]);
 
   // Load initial doctors
   const loadDoctors = useCallback(async () => {
@@ -384,6 +405,7 @@ function MainApp() {
           onBackToDashboard={() => navigateTo('dashboard')}
           onEditDoctor={() => handleEditDoctorInBuilder(activeDoctor)}
           onUpdateDoctor={(updated) => handleSaveDoctor(updated)}
+          onOpenAdminLogin={() => setIsLoginModalOpen(true)}
         />
         {/* Toast notifications */}
         <ToastContainer toasts={toasts} onCloseToast={(id) => setToasts(t => t.filter(x => x.id !== id))} />
@@ -428,31 +450,64 @@ function MainApp() {
         {/* Main Content Area */}
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
           
-          {/* Dashboard View */}
+          {/* Dashboard View - Secured so only admin can view it */}
           {currentRoute.page === 'dashboard' && (
-            <AdminDashboard
-              doctors={doctors}
-              loading={loading}
-              isCloudLive={isCloudLive}
-              onAddNewDoctor={() => {
-                if (!isAdmin) {
-                  setIsLoginModalOpen(true);
-                  return;
-                }
-                setIsNewDoctorModalOpen(true);
-              }}
-              onEditDoctor={handleEditDoctorInBuilder}
-              onPreviewDoctor={(doc) => openDoctorPublic(doc.slug)}
-              onDuplicateDoctor={handleDuplicateDoctor}
-              onDeleteDoctor={handleDeleteDoctor}
-              onToggleStatus={handleToggleStatus}
-              onExportJSON={handleExportJSON}
-              onImportJSON={handleImportJSON}
-              onSyncCloud={handleSyncCloud}
-              isSyncing={isSyncing}
-              onOpenFirebaseModal={() => setIsFirebaseModalOpen(true)}
-              onOpenGitHubPagesModal={() => setIsGitHubPagesModalOpen(true)}
-            />
+            isAdmin ? (
+              <AdminDashboard
+                doctors={doctors}
+                loading={loading}
+                isCloudLive={isCloudLive}
+                onAddNewDoctor={() => {
+                  if (!isAdmin) {
+                    setIsLoginModalOpen(true);
+                    return;
+                  }
+                  setIsNewDoctorModalOpen(true);
+                }}
+                onEditDoctor={handleEditDoctorInBuilder}
+                onPreviewDoctor={(doc) => openDoctorPublic(doc.slug)}
+                onDuplicateDoctor={handleDuplicateDoctor}
+                onDeleteDoctor={handleDeleteDoctor}
+                onToggleStatus={handleToggleStatus}
+                onExportJSON={handleExportJSON}
+                onImportJSON={handleImportJSON}
+                onSyncCloud={handleSyncCloud}
+                isSyncing={isSyncing}
+                onOpenFirebaseModal={() => setIsFirebaseModalOpen(true)}
+                onOpenGitHubPagesModal={() => setIsGitHubPagesModalOpen(true)}
+              />
+            ) : (
+              <div className="max-w-md mx-auto py-16 text-center bg-white rounded-3xl border border-slate-200/80 p-8 shadow-sm space-y-5">
+                <div className="w-14 h-14 bg-amber-50 text-amber-700 rounded-2xl flex items-center justify-center mx-auto shadow-2xs">
+                  <Lock className="w-7 h-7" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-slate-900">لوحة التحكم مقيدة للمشرف فقط</h3>
+                  <p className="text-xs text-slate-500 mt-2 leading-relaxed">
+                    لوحة التحكم والإدارة الطبية وقاعدة البيانات متاحة حصرياً للطبيب المسؤول. يرجى تسجيل الدخول للوصول إلى أدوات الإدارة.
+                  </p>
+                </div>
+                <div className="pt-2 flex flex-col gap-2.5">
+                  <button
+                    onClick={() => setIsLoginModalOpen(true)}
+                    className="w-full py-2.5 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer"
+                  >
+                    تسجيل دخول المشرف (Admin Login)
+                  </button>
+                  {doctors.some(d => d.status === 'published') && (
+                    <button
+                      onClick={() => {
+                        const pub = doctors.find(d => d.status === 'published');
+                        if (pub) openDoctorPublic(pub.slug);
+                      }}
+                      className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                    >
+                      تصفح موقع الطبيب المنشور كزائر
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
           )}
 
           {/* Builder View */}

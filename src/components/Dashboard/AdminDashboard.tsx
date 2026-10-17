@@ -78,15 +78,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   // Specialties list
   const specialties = useMemo(() => {
     const set = new Set<string>();
-    doctors.forEach(d => {
-      if (d.specialty) set.add(d.specialty);
+    (doctors || []).forEach(d => {
+      if (d && d.specialty) set.add(d.specialty);
     });
     return Array.from(set);
   }, [doctors]);
 
   // Filtered doctors
   const filteredDoctors = useMemo(() => {
-    return doctors.filter(doctor => {
+    return (doctors || []).filter(doctor => {
+      if (!doctor || !doctor.id) return false;
+
       const matchesSearch = 
         (doctor.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (doctor.specialty || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -106,10 +108,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Statistics
   const stats = useMemo(() => {
-    const total = doctors.length;
-    const published = doctors.filter(d => d.status === 'published').length;
-    const drafts = doctors.filter(d => d.status === 'draft').length;
-    const totalReviews = doctors.reduce((acc, curr) => acc + (curr.reviewCount || 0), 0);
+    const valid = (doctors || []).filter(d => Boolean(d && d.id));
+    const total = valid.length;
+    const published = valid.filter(d => d?.status === 'published').length;
+    const drafts = valid.filter(d => d?.status === 'draft').length;
+    const totalReviews = valid.reduce((acc, curr) => acc + (curr?.reviewCount || 0), 0);
     return { total, published, drafts, totalReviews };
   }, [doctors]);
 

@@ -6,7 +6,7 @@ interface DoctorAvatarProps {
   name: string;
   avatarUrl?: string;
   themeColor?: ThemeColor;
-  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl';
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl' | 'full';
   className?: string;
 }
 
@@ -34,7 +34,9 @@ export const DoctorAvatar: React.FC<DoctorAvatarProps> = ({
     md: 'w-12 h-12 text-sm',
     lg: 'w-16 h-16 text-base',
     xl: 'w-24 h-24 text-xl',
-    '2xl': 'w-32 h-32 md:w-40 md:h-40 text-2xl md:text-3xl'
+    '2xl': 'w-32 h-32 md:w-40 md:h-40 text-2xl md:text-3xl',
+    '3xl': 'w-48 h-48 md:w-56 md:h-56 text-3xl md:text-4xl',
+    'full': 'w-full h-full text-4xl'
   };
 
   const hasValidImage = Boolean(avatarUrl && avatarUrl.trim().length > 5 && !imgError);

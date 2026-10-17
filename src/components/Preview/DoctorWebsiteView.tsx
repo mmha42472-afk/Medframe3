@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { DoctorProfile, PatientTestimonial } from '../../types/doctor';
+import { DoctorProfile, PatientTestimonial, DoctorPhoto } from '../../types/doctor';
 import { getTheme, getSectionBgClasses } from '../../utils/theme';
+import { useAuth } from '../../context/AuthContext';
 import { DoctorAvatar } from '../Common/DoctorAvatar';
 import { AppointmentModal } from './AppointmentModal';
 import { AddReviewModal } from './AddReviewModal';
@@ -33,7 +34,13 @@ import {
   Globe,
   Plus,
   Sparkles,
-  Lock
+  Lock,
+  Maximize2,
+  Image as ImageIcon,
+  ChevronLeft,
+  ChevronRight,
+  X as CloseIcon,
+  ZoomIn
 } from 'lucide-react';
 
 interface DoctorWebsiteViewProps {
@@ -42,6 +49,7 @@ interface DoctorWebsiteViewProps {
   onEditDoctor?: () => void;
   onBackToDashboard?: () => void;
   onUpdateDoctor?: (updated: DoctorProfile) => void;
+  onOpenAdminLogin?: () => void;
 }
 
 export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
@@ -49,8 +57,10 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
   isPreviewMode = false,
   onEditDoctor,
   onBackToDashboard,
-  onUpdateDoctor
+  onUpdateDoctor,
+  onOpenAdminLogin
 }) => {
+  const { isAdmin } = useAuth();
   const theme = getTheme(doctor?.themeColor || 'teal');
   const [lang, setLang] = useState<'ar' | 'en'>('ar');
   const faqs = doctor?.faqs || [];
@@ -58,6 +68,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
   const services = doctor?.services || [];
   const qualifications = doctor?.qualifications || [];
   const experience = doctor?.experience || [];
+  const photos = doctor?.photos || [];
   const clinic = doctor?.clinic || {
     name: 'العيادة الطبية',
     city: 'الرياض',
@@ -72,6 +83,41 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isAddReviewModalOpen, setIsAddReviewModalOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
+
+  // Doctor photo zoom lightbox state
+  const [isDoctorPhotoZoomed, setIsDoctorPhotoZoomed] = useState(false);
+
+  // Gallery photo lightbox and category filter
+  const [selectedGalleryPhoto, setSelectedGalleryPhoto] = useState<DoctorPhoto | null>(null);
+  const [galleryFilter, setGalleryFilter] = useState<string>('all');
+
+  // Photo gallery categories & filters
+  const photoCategories = [
+    { id: 'all', nameAr: 'كل الصور', nameEn: 'All Photos' },
+    { id: 'clinic', nameAr: 'صور العيادة والاستقبال', nameEn: 'Clinic & Rooms' },
+    { id: 'equipment', nameAr: 'الأجهزة والتقنيات', nameEn: 'Medical Tech' },
+    { id: 'certificates', nameAr: 'الشهادات والاعتماد', nameEn: 'Certificates' },
+    { id: 'cases', nameAr: 'حالات طبية وسريرية', nameEn: 'Clinical Cases' },
+    { id: 'general', nameAr: 'صور عامة', nameEn: 'General' },
+  ];
+
+  const getCategoryLabel = (cat?: string, isEnglish = false) => {
+    const match = photoCategories.find(c => c.id === cat);
+    if (!match) return isEnglish ? 'Medical' : 'طبي';
+    return isEnglish ? match.nameEn : match.nameAr;
+  };
+
+  const filteredPhotos = (photos || []).filter(p => {
+    if (!p || !p.url) return false;
+    if (galleryFilter === 'all') return true;
+    return p.category === galleryFilter;
+  });
+
+  // Calculate unique categories present in doctor's photos
+  const availableCategories = photoCategories.filter(cat => {
+    if (cat.id === 'all') return true;
+    return (photos || []).some(p => p.category === cat.id);
+  });
 
   // Local testimonials state for immediate review addition
   const [testimonials, setTestimonials] = useState<PatientTestimonial[]>(doctor?.testimonials || []);
@@ -195,18 +241,70 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
   const servicesStyle = getSectionBgClasses(styles.servicesBg, doctor.themeColor);
   const qualificationsStyle = getSectionBgClasses(styles.qualificationsBg, doctor.themeColor);
   const clinicStyle = getSectionBgClasses(styles.clinicBg, doctor.themeColor);
+  const galleryStyle = getSectionBgClasses(styles.galleryBg, doctor.themeColor);
   const articlesStyle = getSectionBgClasses(styles.articlesBg, doctor.themeColor);
   const faqsStyle = getSectionBgClasses(styles.faqsBg, doctor.themeColor);
   const testimonialsStyle = getSectionBgClasses(styles.testimonialsBg, doctor.themeColor);
 
+  // Dynamic avatar size mapping for hero portrait
+  const avatarSize = doctor.avatarSize || '2xl';
+  const avatarSizes: Record<string, { container: string; height: string; avatarProp: 'md' | 'lg' | 'xl' | '2xl' | '3xl' | 'full' }> = {
+    md: { container: 'max-w-xs', height: 'h-64 sm:h-72', avatarProp: 'xl' },
+    lg: { container: 'max-w-sm', height: 'h-72 sm:h-80', avatarProp: '2xl' },
+    xl: { container: 'max-w-md', height: 'h-80 sm:h-96', avatarProp: '2xl' },
+    '2xl': { container: 'max-w-lg', height: 'h-96 sm:h-[440px]', avatarProp: '3xl' },
+    '3xl': { container: 'max-w-xl', height: 'h-[440px] sm:h-[540px]', avatarProp: '3xl' },
+    full: { container: 'max-w-2xl', height: 'h-[500px] sm:h-[620px]', avatarProp: 'full' }
+  };
+  const activeAvatarSize = avatarSizes[avatarSize] || avatarSizes['2xl'];
+
+  // Overall Page Background styling
+  const pageBgThemeClasses: Record<string, string> = {
+    default: 'bg-slate-50 text-slate-900',
+    white: 'bg-white text-slate-900',
+    slate: 'bg-slate-100 text-slate-900',
+    cream: 'bg-stone-50 text-stone-900',
+    cool: 'bg-sky-50/50 text-slate-900',
+    dark: 'bg-slate-950 text-slate-100'
+  };
+  const pageBgClass = styles.pageBgTheme && pageBgThemeClasses[styles.pageBgTheme]
+    ? pageBgThemeClasses[styles.pageBgTheme]
+    : 'bg-slate-50 text-slate-900';
+
+  const customPageBgStyle: React.CSSProperties = {
+    ...(styles.pageBgColor ? { backgroundColor: styles.pageBgColor } : {}),
+    ...(styles.pageBgImage ? { backgroundImage: `url(${styles.pageBgImage})`, backgroundSize: 'cover', backgroundAttachment: 'fixed' } : {})
+  };
+
   return (
     <div 
-      className="min-h-screen bg-slate-50 text-slate-900 selection:bg-teal-500 selection:text-white relative overflow-x-hidden" 
+      className={`min-h-screen ${pageBgClass} selection:bg-teal-500 selection:text-white relative overflow-x-hidden`}
+      style={customPageBgStyle}
       dir={isEn ? 'ltr' : 'rtl'}
     >
       
-      {/* Admin Preview Toolbar if opened from builder */}
-      {isPreviewMode && (
+      {/* Background Pattern Overlay if configured */}
+      {styles.pageBgPattern === 'dots' && (
+        <div 
+          className="fixed inset-0 pointer-events-none opacity-25 z-0"
+          style={{
+            backgroundImage: 'radial-gradient(#64748b 1px, transparent 1px)',
+            backgroundSize: '24px 24px'
+          }}
+        />
+      )}
+      {styles.pageBgPattern === 'grid' && (
+        <div 
+          className="fixed inset-0 pointer-events-none opacity-20 z-0"
+          style={{
+            backgroundImage: 'linear-gradient(to right, #94a3b8 1px, transparent 1px), linear-gradient(to bottom, #94a3b8 1px, transparent 1px)',
+            backgroundSize: '32px 32px'
+          }}
+        />
+      )}
+      
+      {/* Admin Preview Toolbar ONLY if user is logged in as Admin */}
+      {isAdmin && isPreviewMode && (
         <aside aria-label="Admin Preview Toolbar" className="sticky top-0 z-50 bg-slate-900 text-white px-4 py-2.5 flex items-center justify-between text-xs border-b border-slate-800 shadow-md">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-amber-400"></span>
@@ -219,7 +317,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
             {onEditDoctor && (
               <button
                 onClick={onEditDoctor}
-                className="px-3 py-1 bg-teal-800 hover:bg-teal-700 text-white font-medium rounded-lg transition-colors"
+                className="px-3 py-1 bg-teal-800 hover:bg-teal-700 text-white font-medium rounded-lg transition-colors cursor-pointer"
               >
                 {isEn ? 'Return to Builder' : 'العودة للمحرر'}
               </button>
@@ -227,7 +325,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
             {onBackToDashboard && (
               <button
                 onClick={onBackToDashboard}
-                className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors"
+                className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors cursor-pointer"
               >
                 {isEn ? 'Dashboard' : 'لوحة التحكم'}
               </button>
@@ -235,8 +333,9 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
           </div>
         </aside>
       )}
-      {/* Draft Notification Banner for Editor */}
-      {!isPreviewMode && doctor.status === 'draft' && (
+
+      {/* Draft Notification Banner ONLY for Admin */}
+      {isAdmin && !isPreviewMode && doctor.status === 'draft' && (
         <aside aria-label="Draft Notice" className="bg-amber-400 text-slate-950 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold shadow-xs">
           <div className="flex items-center gap-2">
             <Lock className="w-4 h-4 shrink-0 text-slate-900" />
@@ -281,7 +380,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
             {/* Bilingual Switcher */}
             <button
               onClick={() => setLang(isEn ? 'ar' : 'en')}
-              className="px-2.5 py-1.5 rounded-xl border border-slate-200 hover:border-slate-300 bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 flex items-center gap-1.5 transition-all"
+              className="px-2.5 py-1.5 rounded-xl border border-slate-200 hover:border-slate-300 bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 flex items-center gap-1.5 transition-all cursor-pointer"
               title={isEn ? 'التبديل إلى العربية' : 'Switch to English'}
             >
               <Globe className="w-3.5 h-3.5 text-teal-700" />
@@ -290,7 +389,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
 
             <button
               onClick={handleCopyLink}
-              className="p-2 sm:px-3 sm:py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-1.5"
+              className="p-2 sm:px-3 sm:py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-1.5 cursor-pointer"
               title="نسخ رابط الموقع للمشاركة"
             >
               {linkCopied ? (
@@ -308,7 +407,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
 
             <button
               onClick={() => setIsBookingModalOpen(true)}
-              className={`px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-sm ${theme.buttonClass}`}
+              className={`px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer ${theme.buttonClass}`}
             >
               {isEn ? 'Book Appointment' : 'حجز موعد'}
             </button>
@@ -377,24 +476,29 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
                 <div className="flex flex-wrap items-center gap-3 pt-2">
                   <button
                     onClick={() => setIsBookingModalOpen(true)}
-                    className={`px-6 py-3 text-sm font-bold rounded-xl transition-all shadow-md flex items-center gap-2 ${theme.buttonClass}`}
+                    className={`px-6 py-3 text-sm font-bold rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer ${theme.buttonClass}`}
                   >
                     <Calendar className="w-4 h-4" />
                     <span>{isEn ? 'Book Consultation' : 'حجز موعد استشارة'}</span>
                   </button>
 
-                  <a
-                    href="#clinic-schedule"
-                    className="px-5 py-3 text-sm font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 rounded-xl transition-colors flex items-center gap-2"
+                  {/* Smooth Scroll to Clinic Hours without breaking URL */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const el = document.getElementById('clinic-schedule');
+                      if (el) el.scrollIntoView({ behavior: 'smooth' });
+                    }}
+                    className="px-5 py-3 text-sm font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
                   >
                     <Clock className="w-4 h-4 text-slate-500" />
                     <span>{isEn ? 'Clinic & Hours' : 'ساعات العمل والعيادة'}</span>
-                  </a>
+                  </button>
                 </div>
 
               </div>
 
-              {/* Doctor Portrait Card with 3D DNA Vector Backdrop */}
+              {/* Doctor Portrait Card with 3D DNA Vector Backdrop and Enlargeable Avatar */}
               <div className="lg:col-span-5 flex justify-center lg:justify-end relative">
                 
                 {/* 3D DNA Floating Vector in background */}
@@ -402,15 +506,33 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
                   <Medical3DDNA themeColor={doctor.themeColor} />
                 </div>
 
-                <div className="relative w-full max-w-sm z-10">
-                  <div className="relative bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-xl">
-                    <DoctorAvatar
-                      name={doctor.name}
-                      avatarUrl={doctor.avatarUrl}
-                      themeColor={doctor.themeColor}
-                      size="2xl"
-                      className="w-full h-80 sm:h-96 rounded-2xl"
-                    />
+                <div className={`relative w-full ${activeAvatarSize.container} z-10 transition-all duration-300`}>
+                  <div className="relative bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-xl group">
+                    
+                    {/* Enlarge / Zoom Button on Avatar */}
+                    <button
+                      type="button"
+                      onClick={() => setIsDoctorPhotoZoomed(true)}
+                      className="absolute top-6 left-6 z-20 px-2.5 py-1.5 bg-white/95 hover:bg-white text-slate-700 rounded-xl shadow-md backdrop-blur-xs transition-all hover:scale-105 flex items-center gap-1.5 text-xs font-bold border border-slate-200/80 cursor-pointer"
+                      title={isEn ? 'Enlarge Doctor Photo' : 'تكبير صورة الطبيب'}
+                    >
+                      <Maximize2 className="w-3.5 h-3.5 text-teal-800" />
+                      <span>{isEn ? 'Zoom' : 'تكبير الصورة'}</span>
+                    </button>
+
+                    <div 
+                      onClick={() => setIsDoctorPhotoZoomed(true)} 
+                      className="cursor-pointer"
+                      title={isEn ? 'Click to enlarge doctor photo' : 'انقر لتكبير صورة الطبيب بالحجم الكامل'}
+                    >
+                      <DoctorAvatar
+                        name={doctor.name}
+                        avatarUrl={doctor.avatarUrl}
+                        themeColor={doctor.themeColor}
+                        size={activeAvatarSize.avatarProp}
+                        className={`w-full ${activeAvatarSize.height} rounded-2xl transition-transform duration-300 group-hover:scale-[1.01]`}
+                      />
+                    </div>
 
                     {/* Quick Badge Under Avatar */}
                     <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
@@ -608,7 +730,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
                       </span>
                       {svc.price && (
                         <span className="text-xs font-bold text-slate-900">
-                          {svc.price} {isEn ? 'SAR' : 'ريال'}
+                          {svc.price} {isEn ? (svc.currency || 'EGP') : (svc.currency || 'جنيه')}
                         </span>
                       )}
                     </div>
@@ -712,6 +834,92 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
               </div>
 
             </div>
+          </div>
+        </section>
+      )}
+
+      {/* Photo Gallery Section */}
+      {config.gallery !== false && photos.length > 0 && (
+        <section id="clinic-gallery" className={`py-14 border-b border-slate-200/80 ${galleryStyle.sectionBg}`}>
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-6">
+            
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div>
+                <span className="text-xs font-bold uppercase tracking-wider text-teal-800">
+                  {isEn ? 'Visual Tour' : 'جولة مصورة بالعيادة'}
+                </span>
+                <h3 className="text-2xl font-bold text-slate-900 mt-1">
+                  {isEn ? 'Clinic & Case Gallery' : 'معرض صور العيادة والتجهيزات الطبية'}
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  {isEn ? 'Explore our modern facilities, medical technology, and clinic ambiance' : 'شاهد غرف الكشف، أحدث الأجهزة والتقنيات الطبية المعتمدة، وشهادات التقدير'}
+                </p>
+              </div>
+
+              {/* Gallery Filter Tabs */}
+              {availableCategories.length > 1 && (
+                <div className="flex flex-wrap gap-1.5 p-1 bg-white/90 rounded-xl border border-slate-200/80 shadow-2xs">
+                  {availableCategories.map(cat => (
+                    <button
+                      key={cat.id}
+                      onClick={() => setGalleryFilter(cat.id)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
+                        galleryFilter === cat.id
+                          ? 'bg-teal-800 text-white shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                      }`}
+                    >
+                      {isEn ? cat.nameEn : cat.nameAr}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Photos Grid */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {filteredPhotos.map((photo, pIdx) => (
+                <div
+                  key={photo.id || pIdx}
+                  onClick={() => setSelectedGalleryPhoto(photo)}
+                  className="group relative bg-white rounded-2xl overflow-hidden border border-slate-200/80 hover:border-teal-700/60 shadow-xs hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col"
+                >
+                  <div className="relative h-56 sm:h-64 overflow-hidden bg-slate-100">
+                    <img
+                      src={photo.url}
+                      alt={photo.title || 'صورة العيادة'}
+                      className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
+                      loading="lazy"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-4 text-white">
+                      <span className="text-xs font-medium flex items-center gap-1.5">
+                        <ZoomIn className="w-4 h-4" />
+                        <span>{isEn ? 'View Full Size' : 'عرض الصورة بحجم كامل'}</span>
+                      </span>
+                      <Maximize2 className="w-4 h-4 text-teal-300" />
+                    </div>
+
+                    {photo.category && (
+                      <span className="absolute top-3 right-3 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white/95 text-slate-800 backdrop-blur-xs shadow-xs border border-white/60">
+                        {getCategoryLabel(photo.category, isEn)}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="p-4 space-y-1 bg-white">
+                    <h4 className="font-bold text-slate-900 text-sm group-hover:text-teal-900 transition-colors">
+                      {isEn ? (photo.titleEn || photo.title) : photo.title}
+                    </h4>
+                    {(photo.caption || photo.captionEn) && (
+                      <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
+                        {isEn ? (photo.captionEn || photo.caption) : photo.caption}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
           </div>
         </section>
       )}
@@ -899,7 +1107,18 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
               <p>
                 {isEn ? `Medical License No: ${doctor.licenseNumber} · All Rights Reserved` : `رقم الترخيص الطبي: ${doctor.licenseNumber} · جميع الحقوق محفوظة`} {new Date().getFullYear()}
               </p>
-              <div className="flex items-center gap-1 text-[11px] text-slate-500">
+              <div className="flex items-center gap-3 text-[11px] text-slate-500">
+                {!isAdmin && onOpenAdminLogin && (
+                  <button
+                    onClick={onOpenAdminLogin}
+                    className="hover:text-teal-400 transition-colors flex items-center gap-1 cursor-pointer"
+                    title={isEn ? 'Admin Login' : 'تسجيل دخول الإدارة'}
+                  >
+                    <Lock className="w-3 h-3" />
+                    <span>{isEn ? 'Admin Access' : 'دخول المشرف'}</span>
+                  </button>
+                )}
+                <span>·</span>
                 <span>{isEn ? 'Powered by' : 'تم إنشاء هذا الموقع بواسطة'}</span>
                 <span className="text-slate-400 font-bold">MedFrame Studio</span>
               </div>
@@ -909,6 +1128,136 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
       )}
 
       {/* Modals */}
+
+      {/* 1. Doctor Photo Zoom Lightbox */}
+      {isDoctorPhotoZoomed && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative max-w-2xl w-full bg-white rounded-3xl overflow-hidden shadow-2xl border border-slate-800">
+            {/* Close Button */}
+            <button
+              onClick={() => setIsDoctorPhotoZoomed(false)}
+              className="absolute top-4 right-4 z-20 p-2.5 bg-slate-900/70 hover:bg-slate-900 text-white rounded-full transition-all cursor-pointer shadow-lg"
+              title={isEn ? 'Close' : 'إغلاق'}
+            >
+              <CloseIcon className="w-5 h-5" />
+            </button>
+
+            <div className="max-h-[75vh] overflow-hidden bg-slate-950 flex items-center justify-center">
+              {doctor.avatarUrl ? (
+                <img
+                  src={doctor.avatarUrl}
+                  alt={doctor.name}
+                  className="max-h-[75vh] w-auto max-w-full object-contain"
+                />
+              ) : (
+                <div className="py-24 text-center text-white">
+                  <DoctorAvatar
+                    name={doctor.name}
+                    avatarUrl={doctor.avatarUrl}
+                    themeColor={doctor.themeColor}
+                    size="3xl"
+                    className="mx-auto"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="p-5 bg-white border-t border-slate-100 flex items-center justify-between">
+              <div>
+                <h4 className="font-bold text-slate-900 text-base">{isEn ? (doctor.nameEn || doctor.name) : doctor.name}</h4>
+                <p className="text-xs text-slate-500">{isEn ? (doctor.titleEn || doctor.title) : doctor.title} · {isEn ? (doctor.specialtyEn || doctor.specialty) : doctor.specialty}</p>
+              </div>
+              <button
+                onClick={() => setIsDoctorPhotoZoomed(false)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
+              >
+                {isEn ? 'Close' : 'إغلاق'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 2. Gallery Photo Lightbox with Next / Previous navigation */}
+      {selectedGalleryPhoto && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="relative max-w-4xl w-full bg-white rounded-3xl overflow-hidden shadow-2xl border border-slate-800">
+            {/* Close Button */}
+            <button
+              onClick={() => setSelectedGalleryPhoto(null)}
+              className="absolute top-4 right-4 z-20 p-2.5 bg-slate-900/70 hover:bg-slate-900 text-white rounded-full transition-all cursor-pointer shadow-lg"
+              title={isEn ? 'Close' : 'إغلاق'}
+            >
+              <CloseIcon className="w-5 h-5" />
+            </button>
+
+            {/* Nav Arrows */}
+            {filteredPhotos.length > 1 && (
+              <>
+                <button
+                  onClick={() => {
+                    const curIdx = filteredPhotos.findIndex(p => p.id === selectedGalleryPhoto.id);
+                    const prevIdx = (curIdx - 1 + filteredPhotos.length) % filteredPhotos.length;
+                    setSelectedGalleryPhoto(filteredPhotos[prevIdx]);
+                  }}
+                  className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-3 bg-slate-900/60 hover:bg-slate-900 text-white rounded-full transition-all cursor-pointer shadow-lg"
+                  title={isEn ? 'Previous' : 'السابق'}
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+
+                <button
+                  onClick={() => {
+                    const curIdx = filteredPhotos.findIndex(p => p.id === selectedGalleryPhoto.id);
+                    const nextIdx = (curIdx + 1) % filteredPhotos.length;
+                    setSelectedGalleryPhoto(filteredPhotos[nextIdx]);
+                  }}
+                  className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-3 bg-slate-900/60 hover:bg-slate-900 text-white rounded-full transition-all cursor-pointer shadow-lg"
+                  title={isEn ? 'Next' : 'التالي'}
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
+              </>
+            )}
+
+            <div className="max-h-[70vh] bg-slate-950 flex items-center justify-center overflow-hidden">
+              <img
+                src={selectedGalleryPhoto.url}
+                alt={selectedGalleryPhoto.title}
+                className="max-h-[70vh] w-auto max-w-full object-contain"
+              />
+            </div>
+
+            <div className="p-5 bg-white border-t border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h4 className="font-bold text-slate-900 text-base">
+                    {isEn ? (selectedGalleryPhoto.titleEn || selectedGalleryPhoto.title) : selectedGalleryPhoto.title}
+                  </h4>
+                  {selectedGalleryPhoto.category && (
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-50 text-teal-800">
+                      {getCategoryLabel(selectedGalleryPhoto.category, isEn)}
+                    </span>
+                  )}
+                </div>
+                {(selectedGalleryPhoto.caption || selectedGalleryPhoto.captionEn) && (
+                  <p className="text-xs text-slate-600 leading-relaxed max-w-2xl">
+                    {isEn ? (selectedGalleryPhoto.captionEn || selectedGalleryPhoto.caption) : selectedGalleryPhoto.caption}
+                  </p>
+                )}
+              </div>
+
+              <button
+                onClick={() => setSelectedGalleryPhoto(null)}
+                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold self-end sm:self-auto cursor-pointer"
+              >
+                {isEn ? 'Close' : 'إغلاق'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {selectedArticle && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
           <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 shadow-2xl border border-slate-200">

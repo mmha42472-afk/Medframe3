@@ -9,7 +9,8 @@ import {
   MedicalArticle,
   PatientFAQ,
   PatientTestimonial,
-  SectionBgStyle
+  SectionBgStyle,
+  DoctorPhoto
 } from '../../types/doctor';
 import { THEME_PALETTES, getTheme } from '../../utils/theme';
 import { translateDoctorProfileToEnglish } from '../../utils/translator';
@@ -42,7 +43,8 @@ import {
   Search,
   Star,
   MessageSquare,
-  Languages
+  Languages,
+  Image as ImageIcon
 } from 'lucide-react';
 
 interface DoctorBuilderProps {
@@ -58,6 +60,7 @@ type TabType =
   | 'credentials' 
   | 'clinic' 
   | 'services' 
+  | 'gallery'
   | 'reviews'
   | 'articles' 
   | 'faqs' 
@@ -220,6 +223,7 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
       name: 'اسم الفحص أو الإجراء الطبي الجديد',
       description: 'وصف موجز لأهمية الإجراء الطبي والتقنيات المستخدمة...',
       price: 500,
+      currency: 'جنيه',
       durationMinutes: 30,
       insuranceAccepted: true,
       category: 'عام'
@@ -240,6 +244,83 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
     setDoctor(prev => ({
       ...prev,
       services: prev.services.filter(s => s.id !== id)
+    }));
+  };
+
+  // Photo Gallery helpers
+  const handleAddPhoto = () => {
+    const newPhoto: DoctorPhoto = {
+      id: `photo-${Date.now()}`,
+      url: 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=800&auto=format&fit=crop&q=80',
+      title: 'صورة من داخل العيادة',
+      caption: 'تجهيزات متطورة ورعاية متكاملة للمرضى',
+      category: 'clinic'
+    };
+    setDoctor(prev => ({
+      ...prev,
+      photos: [...(prev.photos || []), newPhoto],
+      sectionsConfig: {
+        ...prev.sectionsConfig,
+        gallery: true
+      }
+    }));
+  };
+
+  const handleUpdatePhoto = (index: number, field: keyof DoctorPhoto, value: any) => {
+    const list = [...(doctor.photos || [])];
+    list[index] = { ...list[index], [field]: value };
+    setDoctor(prev => ({ ...prev, photos: list }));
+  };
+
+  const handleRemovePhoto = (id: string) => {
+    setDoctor(prev => ({
+      ...prev,
+      photos: (prev.photos || []).filter(p => p.id !== id)
+    }));
+  };
+
+  const handleAddSamplePhotos = () => {
+    const samples: DoctorPhoto[] = [
+      {
+        id: `photo-${Date.now()}-1`,
+        url: 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?w=800&auto=format&fit=crop&q=80',
+        title: 'عيادة الكشف والاستشارة التخصصية',
+        titleEn: 'Consultation & Clinic Room',
+        caption: 'غرفة فحص مهيأة بأحدث المعايير الطبية لراحة وسلامة المرضى',
+        category: 'clinic'
+      },
+      {
+        id: `photo-${Date.now()}-2`,
+        url: 'https://images.unsplash.com/photo-1584515979956-d9f6e5d09982?w=800&auto=format&fit=crop&q=80',
+        title: 'أجهزة التشخيص والفحص التخصصي الدقيق',
+        titleEn: 'Diagnostic Medical Equipment',
+        caption: 'تقنيات فحص متطورة تضمن دقة التشخيص وسرعة النتائج',
+        category: 'equipment'
+      },
+      {
+        id: `photo-${Date.now()}-3`,
+        url: 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=800&auto=format&fit=crop&q=80',
+        title: 'اعتمادات البورد والشهادات الدولية',
+        titleEn: 'Accreditations & Certificates',
+        caption: 'شهادات معتمدة محلياً ودولياً في التخصص الدقيق وجوائز التميز الطبي',
+        category: 'certificates'
+      },
+      {
+        id: `photo-${Date.now()}-4`,
+        url: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=800&auto=format&fit=crop&q=80',
+        title: 'ردهة الاستقبال والانتظار المريح',
+        titleEn: 'Reception & Patient Lounge',
+        caption: 'بيئة هادئة ومريحة تضمن خصوصية المريض وأسرته',
+        category: 'clinic'
+      }
+    ];
+    setDoctor(prev => ({
+      ...prev,
+      photos: [...(prev.photos || []), ...samples],
+      sectionsConfig: {
+        ...prev.sectionsConfig,
+        gallery: true
+      }
     }));
   };
 
@@ -623,6 +704,16 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
             </button>
 
             <button
+              onClick={() => setActiveTab('gallery')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
+                activeTab === 'gallery' ? 'bg-white text-teal-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              <ImageIcon className="w-3.5 h-3.5 text-teal-700" />
+              <span>معرض الصور ({doctor.photos?.length || 0})</span>
+            </button>
+
+            <button
               onClick={() => setActiveTab('reviews')}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold whitespace-nowrap transition-colors flex items-center gap-1.5 ${
                 activeTab === 'reviews' ? 'bg-white text-teal-900 shadow-2xs' : 'text-slate-600 hover:text-slate-900'
@@ -687,6 +778,47 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                   themeColor={doctor.themeColor}
                   onChangeAvatar={(url) => handleFieldChange('avatarUrl', url)}
                 />
+
+                {/* Doctor Photo Size Selector */}
+                <div className="space-y-2 p-3 bg-slate-50 rounded-xl border border-slate-200/80">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-slate-800">
+                      حجم وبروز صورة الطبيب في الواجهة (Doctor Photo Size)
+                    </label>
+                    <span className="text-[10px] text-teal-800 font-semibold">
+                      {(doctor.avatarSize === '3xl' || doctor.avatarSize === 'full') ? 'حجم مكبر جداً' : doctor.avatarSize === '2xl' ? 'حجم ضخم بارز' : doctor.avatarSize === 'xl' ? 'حجم كبير' : 'حجم متوسط'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    يمكنك تكبير حجم صورة الطبيب لجعلها بارزة وشاغلة للمساحة، مع إمكانية التكبير التفاعلي للزوار.
+                  </p>
+                  <div className="grid grid-cols-2 sm:grid-cols-5 gap-1.5 pt-1">
+                    {[
+                      { id: 'md', label: 'متوسط', desc: '320px' },
+                      { id: 'lg', label: 'كبير', desc: '400px' },
+                      { id: 'xl', label: 'كبير جداً', desc: '480px' },
+                      { id: '2xl', label: 'ضخم بارز', desc: '540px' },
+                      { id: '3xl', label: 'أقصى حجم', desc: '620px' }
+                    ].map(sizeOpt => {
+                      const isSel = (doctor.avatarSize || '2xl') === sizeOpt.id;
+                      return (
+                        <button
+                          key={sizeOpt.id}
+                          type="button"
+                          onClick={() => handleFieldChange('avatarSize', sizeOpt.id as any)}
+                          className={`p-2 rounded-xl border text-center transition-all cursor-pointer ${
+                            isSel
+                              ? 'border-teal-700 bg-white text-teal-900 ring-2 ring-teal-700 shadow-xs'
+                              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
+                          }`}
+                        >
+                          <span className="block text-xs font-bold">{sizeOpt.label}</span>
+                          <span className="block text-[10px] text-slate-400 font-mono">{sizeOpt.desc}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
 
                 {/* Theme Palette Selection */}
                 <div className="space-y-2">
@@ -1181,12 +1313,13 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
 
                       <div className="grid grid-cols-3 gap-2 text-xs">
                         <div>
-                          <label className="block text-[10px] text-slate-500">السعر (ريال)</label>
+                          <label className="block text-[10px] font-bold text-slate-700">السعر (بالجنيه المصري / ج.م)</label>
                           <input
                             type="number"
                             value={svc.price || ''}
                             onChange={(e) => handleUpdateService(idx, 'price', Number(e.target.value))}
-                            className="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg tabular-nums"
+                            className="w-full px-2 py-1 bg-white border border-slate-200 rounded-lg tabular-nums font-bold text-teal-900"
+                            placeholder="مثال: 500"
                           />
                         </div>
 
@@ -1216,6 +1349,174 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* TAB: PHOTO GALLERY */}
+            {activeTab === 'gallery' && (
+              <div className="space-y-4">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 p-4 bg-teal-50/60 rounded-2xl border border-teal-200/60">
+                  <div>
+                    <h3 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <ImageIcon className="w-4 h-4 text-teal-800" />
+                      <span>معرض الصور والعيادة (Photo Gallery)</span>
+                    </h3>
+                    <p className="text-[11px] text-slate-600 mt-0.5">
+                      أضف صور غرف الكشف، أحدث الأجهزة والمعدات الطبية، شهادات التكريم، وحالات المرضى.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleAddSamplePhotos}
+                      className="px-3 py-1.5 bg-white hover:bg-slate-50 text-teal-900 border border-teal-300 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-teal-700" />
+                      <span>إضافة صور نموذجية</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAddPhoto}
+                      className="px-3.5 py-1.5 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer flex items-center gap-1"
+                    >
+                      <Plus className="w-4 h-4" />
+                      <span>إضافة صورة جديدة</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Section Visibility Reminder */}
+                <div className="p-3 bg-slate-50 rounded-xl border border-slate-200/70 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-slate-800">حالة ظهور قسم الصور في موقعك:</span>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${doctor.sectionsConfig?.gallery !== false ? 'bg-emerald-50 text-emerald-800' : 'bg-slate-200 text-slate-600'}`}>
+                      {doctor.sectionsConfig?.gallery !== false ? 'مفعل وظاهر للزوار' : 'مخفي حالياً'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleSectionToggle('gallery')}
+                    className="text-xs text-teal-800 hover:text-teal-900 font-bold underline cursor-pointer"
+                  >
+                    {doctor.sectionsConfig?.gallery !== false ? 'إخفاء القسم' : 'إظهار وتفعيل القسم'}
+                  </button>
+                </div>
+
+                {/* Photos List */}
+                {(!doctor.photos || doctor.photos.length === 0) ? (
+                  <div className="p-8 text-center bg-slate-50 rounded-2xl border-2 border-dashed border-slate-200 space-y-3">
+                    <ImageIcon className="w-10 h-10 text-slate-400 mx-auto" />
+                    <div>
+                      <h4 className="font-bold text-slate-800 text-sm">لا توجد صور مضافة حتى الآن</h4>
+                      <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
+                        يمكنك إضافة صور غير محدودة لعيادتك، أجهزتك، أو شهاداتك، أو النقر على "إضافة صور نموذجية" للبدء سريعاً.
+                      </p>
+                    </div>
+                    <div className="pt-2 flex justify-center gap-2">
+                      <button
+                        type="button"
+                        onClick={handleAddSamplePhotos}
+                        className="px-4 py-2 bg-teal-50 hover:bg-teal-100 text-teal-900 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                      >
+                        إضافة 4 صور عيادية جاهزة
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleAddPhoto}
+                        className="px-4 py-2 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-xs font-bold transition-colors cursor-pointer"
+                      >
+                        إضافة صورة مخصصة
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {doctor.photos.map((photo, idx) => (
+                      <div key={photo.id || idx} className="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3 shadow-2xs">
+                        <div className="flex items-center justify-between gap-2 border-b border-slate-200/60 pb-2">
+                          <span className="text-xs font-bold text-slate-700">الصورة #{idx + 1}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleRemovePhoto(photo.id)}
+                            className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                            title="حذف هذه الصورة"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 items-start">
+                          {/* Thumbnail preview */}
+                          <div className="sm:col-span-3">
+                            <div className="w-full h-28 rounded-xl overflow-hidden bg-slate-200 border border-slate-300/80 relative">
+                              <img
+                                src={photo.url}
+                                alt={photo.title || 'معاينة الصورة'}
+                                className="w-full h-full object-cover"
+                                onError={(e) => {
+                                  (e.target as HTMLImageElement).src = 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?w=800&auto=format&fit=crop&q=80';
+                                }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Inputs */}
+                          <div className="sm:col-span-9 space-y-2 text-xs">
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">رابط الصورة (Image URL) *</label>
+                              <input
+                                type="url"
+                                value={photo.url}
+                                onChange={(e) => handleUpdatePhoto(idx, 'url', e.target.value)}
+                                placeholder="https://example.com/clinic-photo.jpg"
+                                className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg font-mono text-left dir-ltr"
+                              />
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              <div>
+                                <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">عنوان الصورة (بالعربية)</label>
+                                <input
+                                  type="text"
+                                  value={photo.title}
+                                  onChange={(e) => handleUpdatePhoto(idx, 'title', e.target.value)}
+                                  placeholder="مثال: غرفة فحص الأسنان الحديثة"
+                                  className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg font-bold"
+                                />
+                              </div>
+
+                              <div>
+                                <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">تصنيف الصورة</label>
+                                <select
+                                  value={photo.category || 'clinic'}
+                                  onChange={(e) => handleUpdatePhoto(idx, 'category', e.target.value)}
+                                  className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg font-semibold cursor-pointer"
+                                >
+                                  <option value="clinic">صور العيادة والاستقبال</option>
+                                  <option value="equipment">الأجهزة والتقنيات الطبية</option>
+                                  <option value="certificates">الشهادات والاعتمادات</option>
+                                  <option value="cases">حالات سريرية وقبل/بعد</option>
+                                  <option value="general">عام</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            <div>
+                              <label className="block text-[11px] font-semibold text-slate-700 mb-0.5">الوصف أو الملاحظات للمريض</label>
+                              <input
+                                type="text"
+                                value={photo.caption || ''}
+                                onChange={(e) => handleUpdatePhoto(idx, 'caption', e.target.value)}
+                                placeholder="تفاصيل إضافية عن التقنية أو الجهاز المعروض..."
+                                className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-slate-600"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             )}
 
@@ -1497,6 +1798,101 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                   </p>
                 </div>
 
+                {/* 1. Global Page Background & Pattern */}
+                <div className="p-4 bg-white rounded-2xl border border-slate-200 space-y-4 shadow-sm">
+                  <div className="flex items-center gap-2 pb-2 border-b border-slate-100">
+                    <Palette className="w-4 h-4 text-teal-800" />
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900">تخصيص خلفية الموقع ككل (Page Background & Patterns)</h4>
+                      <p className="text-[11px] text-slate-500">اختر نمط خلفية الصفحة بالكامل، أو حدد لوناً مخصصاً، أو نقشاً طبياً أنيقاً.</p>
+                    </div>
+                  </div>
+
+                  {/* Preset Themes */}
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-bold text-slate-700">النمط العام لأرضية الموقع:</label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                      {[
+                        { id: 'default', label: 'افتراضي رمادي هادئ' },
+                        { id: 'white', label: 'أبيض عيادي ناصع' },
+                        { id: 'cream', label: 'كريمي دافئ فاخر' },
+                        { id: 'cool', label: 'جليدي طبي منعش' },
+                        { id: 'dark', label: 'ليلي ملكي فاخر' },
+                        { id: 'custom', label: 'لون مخصص (Custom)' }
+                      ].map(themeOpt => {
+                        const isCur = (doctor.customStyles?.pageBgTheme || 'default') === themeOpt.id;
+                        return (
+                          <button
+                            key={themeOpt.id}
+                            type="button"
+                            onClick={() => handleCustomStyleChange('pageBgTheme', themeOpt.id as any)}
+                            className={`p-2.5 rounded-xl border text-center transition-all cursor-pointer font-bold ${
+                              isCur
+                                ? 'border-teal-700 bg-teal-50/70 text-teal-900 ring-2 ring-teal-700 shadow-xs'
+                                : 'border-slate-200 hover:bg-slate-50 text-slate-700'
+                            }`}
+                          >
+                            <span className="block text-xs">{themeOpt.label}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Custom Color & Pattern */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">رمز اللون المخصص (Custom HEX):</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          value={doctor.customStyles?.pageBgColor || '#f8fafc'}
+                          onChange={(e) => {
+                            handleCustomStyleChange('pageBgColor', e.target.value);
+                            handleCustomStyleChange('pageBgTheme', 'custom');
+                          }}
+                          className="w-9 h-9 rounded-lg border border-slate-200 cursor-pointer p-0.5 bg-white"
+                        />
+                        <input
+                          type="text"
+                          value={doctor.customStyles?.pageBgColor || ''}
+                          onChange={(e) => {
+                            handleCustomStyleChange('pageBgColor', e.target.value);
+                            handleCustomStyleChange('pageBgTheme', 'custom');
+                          }}
+                          placeholder="#f8fafc"
+                          className="flex-1 px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg font-mono dir-ltr text-left"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-semibold text-slate-700 mb-1">نقش وزخرفة الخلفية:</label>
+                      <select
+                        value={doctor.customStyles?.pageBgPattern || 'clean'}
+                        onChange={(e) => handleCustomStyleChange('pageBgPattern', e.target.value as any)}
+                        className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-lg font-semibold cursor-pointer"
+                      >
+                        <option value="clean">بدون نقش (صافي ناعم)</option>
+                        <option value="dots">نقاط طبية ناعمة (Subtle Dots)</option>
+                        <option value="grid">شبكة هندسية دقيقة (Grid)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-[11px] font-semibold text-slate-700 mb-1">رابط صورة خلفية اختيارية (Background Image URL):</label>
+                    <input
+                      type="url"
+                      value={doctor.customStyles?.pageBgImage || ''}
+                      onChange={(e) => handleCustomStyleChange('pageBgImage', e.target.value)}
+                      placeholder="https://example.com/clinic-texture.jpg (اختياري)"
+                      className="w-full px-3 py-1.5 text-xs bg-slate-50 border border-slate-200 rounded-lg font-mono dir-ltr text-left"
+                    />
+                  </div>
+                </div>
+
+                {/* 2. Section Visibility & Section-specific Backgrounds */}
                 <div className="space-y-3">
                   {[
                     { key: 'hero', label: 'قسم الواجهة الترحيبية (Hero)', bgKey: 'heroBg' },
@@ -1504,6 +1900,7 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                     { key: 'qualifications', label: 'المؤهلات والزمالات (Qualifications)', bgKey: 'qualificationsBg' },
                     { key: 'services', label: 'الخدمات والإجراءات الطبية (Services)', bgKey: 'servicesBg' },
                     { key: 'clinic', label: 'موقع العيادة والمواعيد (Clinic & Hours)', bgKey: 'clinicBg' },
+                    { key: 'gallery', label: 'معرض صور العيادة والحالات (Photo Gallery)', bgKey: 'galleryBg' },
                     { key: 'testimonials', label: 'آراء وتقييمات المرضى (Reviews)', bgKey: 'testimonialsBg' },
                     { key: 'articles', label: 'مقالات التثقيف الصحي (Articles)', bgKey: 'articlesBg' },
                     { key: 'faqs', label: 'الأسئلة الشائعة (FAQs)', bgKey: 'faqsBg' },

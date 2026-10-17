@@ -31,6 +31,7 @@ export interface MedicalService {
   description: string;
   descriptionEn?: string;
   price?: number;
+  currency?: string; // Default 'جنيه' or 'EGP'
   durationMinutes?: number;
   insuranceAccepted?: boolean;
   category?: string;
@@ -143,6 +144,16 @@ export interface CustomSection {
   order: number;
 }
 
+export interface DoctorPhoto {
+  id: string;
+  url: string;
+  title: string;
+  titleEn?: string;
+  caption?: string;
+  captionEn?: string;
+  category?: 'clinic' | 'equipment' | 'cases' | 'certificates' | 'general';
+}
+
 export interface SectionsVisibility {
   hero: boolean;
   about: boolean;
@@ -150,6 +161,7 @@ export interface SectionsVisibility {
   experience: boolean;
   services: boolean;
   clinic: boolean;
+  gallery?: boolean;
   articles: boolean;
   faqs: boolean;
   testimonials: boolean;
@@ -163,9 +175,15 @@ export interface SectionStyleConfig {
   servicesBg?: SectionBgStyle;
   qualificationsBg?: SectionBgStyle;
   clinicBg?: SectionBgStyle;
+  galleryBg?: SectionBgStyle;
   articlesBg?: SectionBgStyle;
   faqsBg?: SectionBgStyle;
   testimonialsBg?: SectionBgStyle;
+  heroBgImage?: string;
+  pageBgPattern?: 'none' | 'dots' | 'grid' | 'clean' | 'waves';
+  pageBgTheme?: 'default' | 'white' | 'slate' | 'cream' | 'cool' | 'dark' | 'custom';
+  pageBgColor?: string; // Custom Hex color (e.g. #f8fafc)
+  pageBgImage?: string;
   customHexPrimary?: string;
   customHexSecondary?: string;
   borderRadius?: 'rounded-xl' | 'rounded-2xl' | 'rounded-3xl';
@@ -187,6 +205,7 @@ export interface DoctorProfile {
   rating: number;
   reviewCount: number;
   avatarUrl: string;
+  avatarSize?: 'md' | 'lg' | 'xl' | '2xl' | '3xl' | 'full';
   coverUrl: string;
   bio: string;
   bioEn?: string;
@@ -199,6 +218,7 @@ export interface DoctorProfile {
   experience: CareerMilestone[];
   clinic: ClinicDetails;
   services: MedicalService[];
+  photos?: DoctorPhoto[];
   articles: MedicalArticle[];
   faqs: PatientFAQ[];
   testimonials: PatientTestimonial[];

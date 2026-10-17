@@ -139,9 +139,9 @@ export function initializeFirebaseInstances(): boolean {
 initializeFirebaseInstances();
 
 // Export active direct instances - must be real Firestore/Auth instances because Firebase functions like doc() check instanceof Firestore
-export const app = (appInstance || (initializeFirebaseInstances(), appInstance)) as FirebaseApp;
-export const db = (dbInstance || (initializeFirebaseInstances(), dbInstance)) as Firestore;
-export const auth = (authInstance || (initializeFirebaseInstances(), authInstance)) as Auth;
+export const app = (appInstance || (initializeFirebaseInstances(), appInstance)) as unknown as FirebaseApp;
+export const db = (dbInstance || (initializeFirebaseInstances(), dbInstance)) as unknown as Firestore;
+export const auth = (authInstance || (initializeFirebaseInstances(), authInstance)) as unknown as Auth;
 
 /**
  * Saves custom Firebase credentials from the UI Settings Window
