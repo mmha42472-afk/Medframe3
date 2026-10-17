@@ -181,17 +181,46 @@ export const NewDoctorModal: React.FC<NewDoctorModalProps> = ({
 
             <div className="space-y-1">
               <label htmlFor="new-doc-name-en" className="block text-xs font-semibold text-slate-700">
-                الاسم بالإنجليزية (لتوليد الرابط)
+                الاسم بالإنجليزية
               </label>
               <input
                 id="new-doc-name-en"
                 type="text"
                 placeholder="Dr. Faisal Al-Sharif"
                 value={nameEn}
-                onChange={(e) => setNameEn(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setNameEn(val);
+                  if (!customSlug) {
+                    const clean = val.trim().toLowerCase().replace(/^(dr[-_.\s]*)+/g, '').replace(/[^a-z0-9]/g, '-').replace(/-+/g, '-').replace(/^-|-$/g, '');
+                    if (clean) setCustomSlug(`dr-${clean}`);
+                  }
+                }}
                 className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-700 outline-none dir-ltr text-left font-mono"
               />
             </div>
+          </div>
+
+          {/* URL Slug Preview and Customization */}
+          <div className="space-y-1 bg-teal-50/60 p-2.5 rounded-xl border border-teal-100">
+            <div className="flex items-center justify-between text-[11px] font-semibold text-teal-900">
+              <label htmlFor="new-doc-slug" className="flex items-center gap-1">
+                <Globe className="w-3.5 h-3.5 text-teal-700" />
+                <span>رابط موقع الطبيب (URL Slug)</span>
+              </label>
+              <span className="text-teal-700 font-mono dir-ltr text-[10px]">
+                #/doctor/{customSlug || 'dr-name'}
+              </span>
+            </div>
+            <input
+              id="new-doc-slug"
+              type="text"
+              placeholder="dr-faisal"
+              value={customSlug}
+              onChange={(e) => setCustomSlug(e.target.value)}
+              className="w-full px-3 py-1.5 text-xs bg-white border border-teal-200 rounded-lg focus:ring-2 focus:ring-teal-700 outline-none dir-ltr text-left font-mono text-teal-950"
+            />
+            <p className="text-[10px] text-teal-700">هذا هو الرابط الفريد لنشر الموقع للعامة ومشاركته مع المرضى.</p>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">

@@ -130,6 +130,27 @@ function MainApp() {
       setCurrentRoute(route);
 
       if (route.page === 'doctor' && route.slug) {
+        const cleanSlug = route.slug.trim().toLowerCase();
+
+        // 1. Check if activeDoctor is already this doctor
+        if (activeDoctor && (activeDoctor.slug.toLowerCase() === cleanSlug || activeDoctor.slug.toLowerCase() === cleanSlug.replace(/^dr-dr-/, 'dr-'))) {
+          if (activeDoctor.status === 'published' || isAdmin) {
+            return;
+          }
+        }
+
+        // 2. Check in-memory doctors list
+        const memMatch = doctors.find(d => {
+          const dSlug = d.slug.trim().toLowerCase();
+          return dSlug === cleanSlug || dSlug.replace(/^dr-dr-/, 'dr-') === cleanSlug.replace(/^dr-dr-/, 'dr-');
+        });
+
+        if (memMatch && (memMatch.status === 'published' || isAdmin)) {
+          setActiveDoctor(memMatch);
+          return;
+        }
+
+        // 3. Fallback to doctorService (local storage first, then Firestore)
         let found = await getDoctorBySlug(route.slug, isAdmin);
         if (!found && isAdmin) {
           found = await findDoctorAnyStatus(route.slug);
@@ -151,7 +172,7 @@ function MainApp() {
       window.removeEventListener('hashchange', handleUrlChange);
       window.removeEventListener('popstate', handleUrlChange);
     };
-  }, [parseCurrentUrl, isAdmin]);
+  }, [parseCurrentUrl, isAdmin, doctors, activeDoctor]);
 
   // Navigation handlers
   const navigateTo = (page: 'dashboard' | 'builder' | 'directory') => {
@@ -160,10 +181,15 @@ function MainApp() {
   };
 
   const openDoctorPublic = (slug: string) => {
-    const target = doctors.find(d => d.slug === slug);
+    const cleanSlug = slug.trim().toLowerCase();
+    const target = doctors.find(d => {
+      const dSlug = d.slug.trim().toLowerCase();
+      return dSlug === cleanSlug || dSlug.replace(/^dr-dr-/, 'dr-') === cleanSlug.replace(/^dr-dr-/, 'dr-');
+    });
     if (target) {
       setActiveDoctor(target);
     }
+    setCurrentRoute({ page: 'doctor', slug });
     window.location.hash = `#/doctor/${slug}`;
   };
 
@@ -299,6 +325,15 @@ function MainApp() {
       updatedAt: new Date().toISOString()
     };
     await handleSaveDoctor(updated);
+    setDoctors(prev => {
+      const idx = prev.findIndex(d => d.id === updated.id);
+      if (idx >= 0) {
+        const copy = [...prev];
+        copy[idx] = updated;
+        return copy;
+      }
+      return [updated, ...prev];
+    });
     setActiveDoctor(updated);
     setCurrentRoute({ page: 'doctor', slug: updated.slug });
     window.location.hash = `#/doctor/${updated.slug}`;
