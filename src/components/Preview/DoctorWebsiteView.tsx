@@ -51,16 +51,30 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
   onBackToDashboard,
   onUpdateDoctor
 }) => {
-  const theme = getTheme(doctor.themeColor);
+  const theme = getTheme(doctor?.themeColor || 'teal');
   const [lang, setLang] = useState<'ar' | 'en'>('ar');
-  const [activeFaq, setActiveFaq] = useState<string | null>(doctor.faqs[0]?.id || null);
-  const [selectedArticle, setSelectedArticle] = useState<typeof doctor.articles[0] | null>(null);
+  const faqs = doctor?.faqs || [];
+  const articles = doctor?.articles || [];
+  const services = doctor?.services || [];
+  const qualifications = doctor?.qualifications || [];
+  const experience = doctor?.experience || [];
+  const clinic = doctor?.clinic || {
+    name: 'العيادة الطبية',
+    city: 'الرياض',
+    address: '',
+    phone: '',
+    whatsapp: '',
+    workingHours: []
+  };
+
+  const [activeFaq, setActiveFaq] = useState<string | null>(faqs[0]?.id || null);
+  const [selectedArticle, setSelectedArticle] = useState<typeof articles[0] | null>(null);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isAddReviewModalOpen, setIsAddReviewModalOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
 
   // Local testimonials state for immediate review addition
-  const [testimonials, setTestimonials] = useState<PatientTestimonial[]>(doctor.testimonials || []);
+  const [testimonials, setTestimonials] = useState<PatientTestimonial[]>(doctor?.testimonials || []);
 
   const isEn = lang === 'en';
 
@@ -733,7 +747,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
                 <div key={test.id} className="p-5 bg-white rounded-2xl border border-slate-200/80 space-y-3 shadow-xs">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1">
-                      {[...Array(test.rating)].map((_, i) => (
+                      {[...Array(Math.max(1, Math.min(5, Math.round(Number(test.rating) || 5))))].map((_, i) => (
                         <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
                       ))}
                     </div>
@@ -774,7 +788,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {doctor.articles.map((art) => (
+              {articles.map((art) => (
                 <div 
                   key={art.id} 
                   className="p-5 bg-white rounded-2xl border border-slate-200/80 hover:border-slate-300 transition-all flex flex-col justify-between"
@@ -808,7 +822,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
       )}
 
       {/* Patient FAQs */}
-      {config.faqs && doctor.faqs?.length > 0 && (
+      {config.faqs && faqs.length > 0 && (
         <section className={`py-14 border-b border-slate-200/80 ${faqsStyle.sectionBg}`}>
           <div className="max-w-4xl mx-auto px-4 sm:px-6 space-y-6">
             <div className="text-center space-y-1">
@@ -821,7 +835,7 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
             </div>
 
             <div className="space-y-3">
-              {doctor.faqs.map((faq) => {
+              {faqs.map((faq) => {
                 const isOpen = activeFaq === faq.id;
                 return (
                   <div 

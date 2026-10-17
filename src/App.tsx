@@ -109,7 +109,8 @@ function MainApp() {
   const loadDoctors = useCallback(async () => {
     setLoading(true);
     try {
-      const result = await getDoctorsList(isAdmin);
+      // In studio dashboard, load all profiles (published + drafts) so admin can manage them
+      const result = await getDoctorsList(true);
       setDoctors(result.doctors);
       setIsCloudLive(result.liveSynced);
     } catch (e) {
@@ -117,7 +118,7 @@ function MainApp() {
     } finally {
       setLoading(false);
     }
-  }, [isAdmin]);
+  }, []);
 
   useEffect(() => {
     loadDoctors();
@@ -133,26 +134,31 @@ function MainApp() {
         const cleanSlug = route.slug.trim().toLowerCase();
 
         // 1. Check if activeDoctor is already this doctor
-        if (activeDoctor && (activeDoctor.slug.toLowerCase() === cleanSlug || activeDoctor.slug.toLowerCase() === cleanSlug.replace(/^dr-dr-/, 'dr-'))) {
-          if (activeDoctor.status === 'published' || isAdmin) {
-            return;
-          }
+        if (activeDoctor && (
+          activeDoctor.slug.toLowerCase() === cleanSlug || 
+          activeDoctor.id.toLowerCase() === cleanSlug ||
+          activeDoctor.slug.toLowerCase().replace(/^dr-dr-/, 'dr-') === cleanSlug.replace(/^dr-dr-/, 'dr-')
+        )) {
+          return;
         }
 
         // 2. Check in-memory doctors list
         const memMatch = doctors.find(d => {
           const dSlug = d.slug.trim().toLowerCase();
-          return dSlug === cleanSlug || dSlug.replace(/^dr-dr-/, 'dr-') === cleanSlug.replace(/^dr-dr-/, 'dr-');
+          const dId = d.id.trim().toLowerCase();
+          return dSlug === cleanSlug || 
+                 dId === cleanSlug || 
+                 dSlug.replace(/^dr-dr-/, 'dr-') === cleanSlug.replace(/^dr-dr-/, 'dr-');
         });
 
-        if (memMatch && (memMatch.status === 'published' || isAdmin)) {
+        if (memMatch) {
           setActiveDoctor(memMatch);
           return;
         }
 
         // 3. Fallback to doctorService (local storage first, then Firestore)
-        let found = await getDoctorBySlug(route.slug, isAdmin);
-        if (!found && isAdmin) {
+        let found = await getDoctorBySlug(route.slug, true);
+        if (!found) {
           found = await findDoctorAnyStatus(route.slug);
         }
         if (found) {
@@ -172,7 +178,7 @@ function MainApp() {
       window.removeEventListener('hashchange', handleUrlChange);
       window.removeEventListener('popstate', handleUrlChange);
     };
-  }, [parseCurrentUrl, isAdmin, doctors, activeDoctor]);
+  }, [parseCurrentUrl, doctors, activeDoctor]);
 
   // Navigation handlers
   const navigateTo = (page: 'dashboard' | 'builder' | 'directory') => {
@@ -184,7 +190,10 @@ function MainApp() {
     const cleanSlug = slug.trim().toLowerCase();
     const target = doctors.find(d => {
       const dSlug = d.slug.trim().toLowerCase();
-      return dSlug === cleanSlug || dSlug.replace(/^dr-dr-/, 'dr-') === cleanSlug.replace(/^dr-dr-/, 'dr-');
+      const dId = d.id.trim().toLowerCase();
+      return dSlug === cleanSlug || 
+             dId === cleanSlug || 
+             dSlug.replace(/^dr-dr-/, 'dr-') === cleanSlug.replace(/^dr-dr-/, 'dr-');
     });
     if (target) {
       setActiveDoctor(target);
@@ -309,10 +318,6 @@ function MainApp() {
 
   // Open builder for specific doctor
   const handleEditDoctorInBuilder = (doc: DoctorProfile) => {
-    if (!isAdmin) {
-      setIsLoginModalOpen(true);
-      return;
-    }
     setActiveDoctor(doc);
     navigateTo('builder');
   };
@@ -350,14 +355,34 @@ function MainApp() {
   // ==========================================
 
   // 1. Direct Public Doctor Website
-  if (currentRoute.page === 'doctor' && activeDoctor) {
+  if (currentRoute.page === 'doctor') {
+    if (!activeDoctor) {
+      return (
+        <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4" dir="rtl">
+          <div className="bg-white rounded-3xl p-8 border border-slate-200/80 shadow-xl text-center space-y-4 max-w-sm w-full animate-in fade-in duration-200">
+            <div className="w-10 h-10 border-3 border-teal-700 border-t-transparent rounded-full animate-spin mx-auto"></div>
+            <div>
+              <h3 className="font-bold text-slate-900 text-sm">جارٍ تحميل موقع الطبيب...</h3>
+              <p className="text-xs text-slate-500 mt-1">يتم جلب البيانات وتجهيز الصفحة</p>
+            </div>
+            <button
+              onClick={() => navigateTo('dashboard')}
+              className="text-xs text-teal-800 hover:text-teal-900 font-semibold underline cursor-pointer"
+            >
+              العودة للوحة التحكم
+            </button>
+          </div>
+        </div>
+      );
+    }
+
     return (
       <>
         <DoctorWebsiteView
           doctor={activeDoctor}
           isPreviewMode={false}
           onBackToDashboard={() => navigateTo('dashboard')}
-          onEditDoctor={isAdmin ? () => handleEditDoctorInBuilder(activeDoctor) : undefined}
+          onEditDoctor={() => handleEditDoctorInBuilder(activeDoctor)}
           onUpdateDoctor={(updated) => handleSaveDoctor(updated)}
         />
         {/* Toast notifications */}

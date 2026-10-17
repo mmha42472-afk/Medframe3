@@ -22,13 +22,72 @@ export interface LoadResult {
 }
 
 /**
+ * Normalizes any doctor record (from Firestore, localStorage, or JSON)
+ * ensuring all required objects, clinic details, and arrays are guaranteed to exist.
+ */
+export function normalizeDoctorProfile(raw: any): DoctorProfile {
+  if (!raw) {
+    raw = {};
+  }
+  return {
+    id: raw.id || `doc-${Date.now()}`,
+    slug: raw.slug || `dr-${Date.now().toString().slice(-6)}`,
+    name: raw.name || 'طبيب استشاري',
+    nameEn: raw.nameEn || '',
+    title: raw.title || 'طبيب استشاري',
+    specialty: raw.specialty || 'طب عام',
+    subspecialties: Array.isArray(raw.subspecialties) ? raw.subspecialties : [],
+    licenseNumber: raw.licenseNumber || 'SCHS-REG',
+    experienceYears: Number(raw.experienceYears) || 5,
+    rating: Number(raw.rating) || 5.0,
+    reviewCount: Number(raw.reviewCount) || 1,
+    avatarUrl: raw.avatarUrl || '',
+    coverUrl: raw.coverUrl || '',
+    bio: raw.bio || '',
+    statement: raw.statement || '',
+    themeColor: raw.themeColor || 'teal',
+    status: raw.status === 'draft' ? 'draft' : 'published',
+    qualifications: Array.isArray(raw.qualifications) ? raw.qualifications : [],
+    experience: Array.isArray(raw.experience) ? raw.experience : [],
+    clinic: {
+      name: raw.clinic?.name || 'العيادة الطبية',
+      city: raw.clinic?.city || 'الرياض',
+      address: raw.clinic?.address || '',
+      phone: raw.clinic?.phone || '',
+      whatsapp: raw.clinic?.whatsapp || '',
+      workingHours: Array.isArray(raw.clinic?.workingHours) ? raw.clinic.workingHours : []
+    },
+    services: Array.isArray(raw.services) ? raw.services : [],
+    articles: Array.isArray(raw.articles) ? raw.articles : [],
+    faqs: Array.isArray(raw.faqs) ? raw.faqs : [],
+    testimonials: Array.isArray(raw.testimonials) ? raw.testimonials : [],
+    socialLinks: raw.socialLinks || {},
+    seo: raw.seo || { metaTitle: raw.name || '', metaDescription: '', keywords: [] },
+    sectionsConfig: raw.sectionsConfig || {
+      hero: true, about: true, qualifications: true, experience: true,
+      services: true, clinic: true, articles: true, faqs: true, testimonials: true, contact: true
+    },
+    createdAt: raw.createdAt || new Date().toISOString(),
+    updatedAt: raw.updatedAt || new Date().toISOString(),
+    isDemo: Boolean(raw.isDemo)
+  };
+}
+
+/**
  * Loads custom doctors stored in browser localStorage safely.
  */
 function getLocalCustomDoctors(): DoctorProfile[] {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY_CUSTOM_DOCTORS);
-    if (!raw) return [];
-    return JSON.parse(raw);
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem(STORAGE_KEY_CUSTOM_DOCTORS);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.map(normalizeDoctorProfile);
+      }
+      return [];
+    }
+    return [];
   } catch {
     return [];
   }
@@ -39,7 +98,9 @@ function getLocalCustomDoctors(): DoctorProfile[] {
  */
 function setLocalCustomDoctors(doctors: DoctorProfile[]): void {
   try {
-    localStorage.setItem(STORAGE_KEY_CUSTOM_DOCTORS, JSON.stringify(doctors));
+    if (typeof window !== 'undefined' && typeof localStorage !== 'undefined') {
+      localStorage.setItem(STORAGE_KEY_CUSTOM_DOCTORS, JSON.stringify(doctors));
+    }
   } catch (e) {
     console.warn('LocalStorage save failed:', e);
   }
@@ -55,7 +116,7 @@ export async function getDoctorsList(isAdmin: boolean = false): Promise<LoadResu
   const localItems = getLocalCustomDoctors();
 
   // Try Firestore if ready
-  if (db && isFirebaseReady) {
+  if (isFirebaseReady) {
     try {
       const doctorsRef = collection(db, COLLECTION_NAME);
       const q = isAdmin 
@@ -64,14 +125,14 @@ export async function getDoctorsList(isAdmin: boolean = false): Promise<LoadResu
 
       const fetchPromise = getDocs(q);
       const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('timeout')), 6000)
+        setTimeout(() => reject(new Error('timeout')), 5000)
       );
 
       const snapshot = await Promise.race([fetchPromise, timeoutPromise]);
       const cloudDoctors: DoctorProfile[] = [];
 
       snapshot.forEach((docSnap) => {
-        cloudDoctors.push(docSnap.data() as DoctorProfile);
+        cloudDoctors.push(normalizeDoctorProfile(docSnap.data()));
       });
 
       if (cloudDoctors.length > 0) {
@@ -107,7 +168,7 @@ export async function getDoctorsList(isAdmin: boolean = false): Promise<LoadResu
   }
 
   // Fallback: Merge Demo + Local Custom
-  let merged = [...DEMO_DOCTORS];
+  let merged = DEMO_DOCTORS.map(normalizeDoctorProfile);
   
   // Overwrite or append local items
   localItems.forEach(localItem => {
@@ -147,17 +208,22 @@ function getSlugVariants(slug: string): string[] {
 }
 
 /**
- * Fetches a single doctor by URL slug.
- * Gated: Public visitors CANNOT view if status !== 'published'.
+ * Fetches a single doctor by URL slug or ID.
+ * Gated: Public visitors receive full profile or draft preview banner.
  * Local-First for 0ms instant loading, with reliable Firestore cloud fallback.
  */
 export async function getDoctorBySlug(slug: string, isAdmin: boolean = false): Promise<DoctorProfile | null> {
   if (!slug) return null;
   const variants = getSlugVariants(slug);
+  const cleanTarget = slug.trim().toLowerCase();
 
   // 1. Instant check: local custom modifications (0ms, offline-first)
   const localList = getLocalCustomDoctors();
-  const localMatch = localList.find(d => variants.includes(d.slug.toLowerCase()));
+  const localMatch = localList.find(d => 
+    variants.includes(d.slug.toLowerCase()) || 
+    d.id.toLowerCase() === cleanTarget ||
+    d.slug.toLowerCase() === cleanTarget
+  );
   if (localMatch) {
     if (localMatch.status === 'published' || isAdmin) {
       return localMatch;
@@ -165,7 +231,11 @@ export async function getDoctorBySlug(slug: string, isAdmin: boolean = false): P
   }
 
   // 2. Instant check: demo doctors
-  const demoMatch = DEMO_DOCTORS.find(d => variants.includes(d.slug.toLowerCase()));
+  const demoMatch = DEMO_DOCTORS.find(d => 
+    variants.includes(d.slug.toLowerCase()) || 
+    d.id.toLowerCase() === cleanTarget ||
+    d.slug.toLowerCase() === cleanTarget
+  );
   if (demoMatch) {
     if (demoMatch.status === 'published' || isAdmin) {
       return demoMatch;
@@ -173,21 +243,32 @@ export async function getDoctorBySlug(slug: string, isAdmin: boolean = false): P
   }
 
   // 3. Cloud Firestore query (vital for public visitors and new devices)
-  if (db && isFirebaseReady) {
+  if (isFirebaseReady) {
     try {
       const doctorsRef = collection(db, COLLECTION_NAME);
       const q = query(doctorsRef, where('slug', 'in', variants.slice(0, 10)));
       
       const fetchPromise = getDocs(q);
       const timeoutPromise = new Promise<never>((_, reject) => 
-        setTimeout(() => reject(new Error('timeout')), 8000)
+        setTimeout(() => reject(new Error('timeout')), 4000)
       );
 
       const snapshot = await Promise.race([fetchPromise, timeoutPromise]);
       if (!snapshot.empty) {
-        const docData = snapshot.docs[0].data() as DoctorProfile;
+        const docData = normalizeDoctorProfile(snapshot.docs[0].data());
         if (docData.status === 'published' || isAdmin) {
           return docData;
+        }
+      }
+
+      // Check by direct doc ID if target starts with doc-
+      if (cleanTarget.startsWith('doc-')) {
+        const docSnap = await getDoc(doc(db, COLLECTION_NAME, cleanTarget));
+        if (docSnap.exists()) {
+          const docData = normalizeDoctorProfile(docSnap.data());
+          if (docData.status === 'published' || isAdmin) {
+            return docData;
+          }
         }
       }
     } catch (e) {
@@ -195,33 +276,50 @@ export async function getDoctorBySlug(slug: string, isAdmin: boolean = false): P
     }
   }
 
+  // 4. Return local or demo match if found (even if draft, to allow draft preview banner)
+  if (localMatch) return localMatch;
+  if (demoMatch) return demoMatch;
+
   return null;
 }
 
 /**
- * Finds doctor by slug regardless of draft or published status (used for helpful resolution in 404 / draft views)
+ * Finds doctor by slug or ID regardless of draft or published status (used for helpful resolution in 404 / draft views)
  */
 export async function findDoctorAnyStatus(slug: string): Promise<DoctorProfile | null> {
   if (!slug) return null;
   const variants = getSlugVariants(slug);
+  const cleanTarget = slug.trim().toLowerCase();
 
   // 1. Check local modifications first
   const localList = getLocalCustomDoctors();
-  const localMatch = localList.find(d => variants.includes(d.slug.toLowerCase()));
+  const localMatch = localList.find(d => 
+    variants.includes(d.slug.toLowerCase()) || 
+    d.id.toLowerCase() === cleanTarget ||
+    d.slug.toLowerCase() === cleanTarget
+  );
   if (localMatch) return localMatch;
 
   // 2. Check demo doctors
-  const demoMatch = DEMO_DOCTORS.find(d => variants.includes(d.slug.toLowerCase()));
+  const demoMatch = DEMO_DOCTORS.find(d => 
+    variants.includes(d.slug.toLowerCase()) || 
+    d.id.toLowerCase() === cleanTarget ||
+    d.slug.toLowerCase() === cleanTarget
+  );
   if (demoMatch) return demoMatch;
 
   // 3. Check Firestore
-  if (db && isFirebaseReady) {
+  if (isFirebaseReady) {
     try {
       const doctorsRef = collection(db, COLLECTION_NAME);
       const q = query(doctorsRef, where('slug', 'in', variants.slice(0, 10)));
       const snapshot = await getDocs(q);
       if (!snapshot.empty) {
-        return snapshot.docs[0].data() as DoctorProfile;
+        return normalizeDoctorProfile(snapshot.docs[0].data());
+      }
+      if (cleanTarget.startsWith('doc-')) {
+        const snap = await getDoc(doc(db, COLLECTION_NAME, cleanTarget));
+        if (snap.exists()) return normalizeDoctorProfile(snap.data());
       }
     } catch (e) {
       console.warn('Firestore findDoctorAnyStatus error:', e);
@@ -262,21 +360,7 @@ export async function saveDoctorProfile(profile: DoctorProfile): Promise<{ succe
   let cloudSaved = false;
   let cloudError: string | undefined = undefined;
 
-  // Save to Firestore if available
-  if (db && isFirebaseReady) {
-    try {
-      const docRef = doc(db, COLLECTION_NAME, updatedProfile.id);
-      await setDoc(docRef, updatedProfile);
-      cloudSaved = true;
-    } catch (error) {
-      console.warn('Firestore cloud save failed or offline. Saved locally:', error);
-      cloudError = formatFirestoreErrorMessage(error);
-    }
-  } else {
-    cloudError = 'خدمة فايربيس غير متصلة بعد. تأكد من إعداد المفاتيح.';
-  }
-
-  // Always update local cache
+  // 1. Always update local cache FIRST for instant UI reactivity
   const localList = getLocalCustomDoctors();
   const index = localList.findIndex(d => d.id === updatedProfile.id);
   if (index >= 0) {
@@ -285,6 +369,20 @@ export async function saveDoctorProfile(profile: DoctorProfile): Promise<{ succe
     localList.unshift(updatedProfile);
   }
   setLocalCustomDoctors(localList);
+
+  // 2. Save to Firestore cloud database
+  if (isFirebaseReady) {
+    try {
+      const docRef = doc(db, COLLECTION_NAME, updatedProfile.id);
+      await setDoc(docRef, updatedProfile);
+      cloudSaved = true;
+    } catch (error) {
+      console.warn('Firestore cloud save failed. Saved locally:', error);
+      cloudError = formatFirestoreErrorMessage(error);
+    }
+  } else {
+    cloudError = 'خدمة فايربيس غير متصلة بعد.';
+  }
 
   return { success: true, cloudSaved, cloudError };
 }

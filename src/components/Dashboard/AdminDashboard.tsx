@@ -88,10 +88,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const filteredDoctors = useMemo(() => {
     return doctors.filter(doctor => {
       const matchesSearch = 
-        doctor.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        doctor.specialty.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        doctor.clinic.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        doctor.slug.toLowerCase().includes(searchQuery.toLowerCase());
+        (doctor.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (doctor.specialty || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (doctor.clinic?.city || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (doctor.clinic?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (doctor.slug || '').toLowerCase().includes(searchQuery.toLowerCase());
       
       const matchesStatus = 
         statusFilter === 'all' ? true : doctor.status === statusFilter;
@@ -396,11 +397,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   <div className="pt-2 border-t border-slate-100 space-y-1.5 text-[11px] text-slate-500">
                     <div className="flex items-center justify-between">
                       <span>العيادة:</span>
-                      <span className="font-medium text-slate-800">{doctor.clinic.name}</span>
+                      <span className="font-medium text-slate-800">{doctor.clinic?.name || 'العيادة الطبية'}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span>المدينة:</span>
-                      <span className="text-slate-800">{doctor.clinic.city}</span>
+                      <span className="text-slate-800">{doctor.clinic?.city || 'الرياض'}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span>الخدمات / المقالات:</span>

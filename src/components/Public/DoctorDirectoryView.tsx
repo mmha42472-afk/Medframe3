@@ -35,9 +35,10 @@ export const DoctorDirectoryView: React.FC<DoctorDirectoryViewProps> = ({
 
   const filtered = availableDoctors.filter(d => {
     const matchQuery = 
-      d.name.toLowerCase().includes(search.toLowerCase()) ||
-      d.specialty.toLowerCase().includes(search.toLowerCase()) ||
-      d.clinic.city.toLowerCase().includes(search.toLowerCase());
+      (d.name || '').toLowerCase().includes(search.toLowerCase()) ||
+      (d.specialty || '').toLowerCase().includes(search.toLowerCase()) ||
+      (d.clinic?.city || '').toLowerCase().includes(search.toLowerCase()) ||
+      (d.clinic?.name || '').toLowerCase().includes(search.toLowerCase());
     
     const matchSpec = selectedSpecialty === 'all' || d.specialty === selectedSpecialty;
 
@@ -124,7 +125,7 @@ export const DoctorDirectoryView: React.FC<DoctorDirectoryViewProps> = ({
               <div className="pt-3 border-t border-slate-100 space-y-1.5 text-xs text-slate-500">
                 <div className="flex items-center gap-2">
                   <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                  <span className="truncate">{doctor.clinic.name} · {doctor.clinic.city}</span>
+                  <span className="truncate">{doctor.clinic?.name || 'العيادة الطبية'} · {doctor.clinic?.city || 'الرياض'}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1 text-amber-600 font-semibold">

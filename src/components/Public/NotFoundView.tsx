@@ -57,9 +57,10 @@ export const NotFoundView: React.FC<NotFoundViewProps> = ({
   }, [slug, allDoctors]);
 
   const filtered = publishedDoctors.filter(d => 
-    d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    d.specialty.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    d.clinic.city.toLowerCase().includes(searchQuery.toLowerCase())
+    (d.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (d.specialty || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (d.clinic?.city || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+    (d.clinic?.name || '').toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const handlePublishNow = async () => {
@@ -225,7 +226,7 @@ export const NotFoundView: React.FC<NotFoundViewProps> = ({
               >
                 <div>
                   <h4 className="font-bold text-slate-900 group-hover:text-teal-900">{doc.name}</h4>
-                  <p className="text-[11px] text-slate-500">{doc.specialty} · {doc.clinic.city}</p>
+                  <p className="text-[11px] text-slate-500">{doc.specialty} · {doc.clinic?.city || 'الرياض'}</p>
                 </div>
                 <ArrowLeft className="w-4 h-4 text-slate-400 group-hover:text-teal-700 group-hover:-translate-x-1 transition-transform" />
               </button>
