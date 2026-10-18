@@ -17,6 +17,8 @@ import { translateDoctorProfileToEnglish } from '../../utils/translator';
 import { DoctorWebsiteView } from '../Preview/DoctorWebsiteView';
 import { DoctorPhotoUploader } from './DoctorPhotoUploader';
 import { DoctorSEOSection } from './DoctorSEOSection';
+import { MedicalHeroIcon, AVAILABLE_HERO_ICONS } from '../Common/MedicalHeroIcon';
+import { EasyWebModal } from './EasyWebModal';
 import { 
   ArrowRight, 
   Save, 
@@ -44,7 +46,11 @@ import {
   Star,
   MessageSquare,
   Languages,
-  Image as ImageIcon
+  Image as ImageIcon,
+  Clock,
+  ShieldCheck,
+  MapPin,
+  Zap
 } from 'lucide-react';
 
 interface DoctorBuilderProps {
@@ -102,12 +108,87 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
     }));
   };
 
+  const [isEasyWebOpen, setIsEasyWebOpen] = useState(false);
+
   const handleClinicChange = (field: keyof DoctorProfile['clinic'], value: any) => {
     setDoctor(prev => ({
       ...prev,
       clinic: {
         ...prev.clinic,
         [field]: value
+      }
+    }));
+  };
+
+  // Working Hours & Schedule handlers
+  const handleAddWorkingHour = () => {
+    const newRow = {
+      days: 'السبت - الأربعاء',
+      daysEn: 'Sat - Wed',
+      hours: '9:00 ص - 9:00 م',
+      hoursEn: '9:00 AM - 9:00 PM'
+    };
+    setDoctor(prev => ({
+      ...prev,
+      clinic: {
+        ...prev.clinic,
+        workingHours: [...(prev.clinic.workingHours || []), newRow]
+      }
+    }));
+  };
+
+  const handleUpdateWorkingHour = (index: number, field: string, value: string) => {
+    const list = [...(doctor.clinic.workingHours || [])];
+    list[index] = { ...list[index], [field]: value };
+    setDoctor(prev => ({
+      ...prev,
+      clinic: {
+        ...prev.clinic,
+        workingHours: list
+      }
+    }));
+  };
+
+  const handleRemoveWorkingHour = (index: number) => {
+    const list = (doctor.clinic.workingHours || []).filter((_, i) => i !== index);
+    setDoctor(prev => ({
+      ...prev,
+      clinic: {
+        ...prev.clinic,
+        workingHours: list
+      }
+    }));
+  };
+
+  const handleApplySchedulePreset = (presetType: 'standard' | 'evening' | 'split' | 'allday') => {
+    let preset: { days: string; daysEn?: string; hours: string; hoursEn?: string }[] = [];
+    if (presetType === 'standard') {
+      preset = [
+        { days: 'السبت - الأربعاء', daysEn: 'Sat - Wed', hours: '9:00 ص - 9:00 م', hoursEn: '9:00 AM - 9:00 PM' },
+        { days: 'الخميس', daysEn: 'Thursday', hours: '9:00 ص - 3:00 م', hoursEn: '9:00 AM - 3:00 PM' },
+        { days: 'الجمعة', daysEn: 'Friday', hours: 'مغلق (طوارئ فقط)', hoursEn: 'Closed (Emergency Only)' }
+      ];
+    } else if (presetType === 'evening') {
+      preset = [
+        { days: 'السبت - الخميس', daysEn: 'Sat - Thu', hours: '4:00 م - 10:00 م', hoursEn: '4:00 PM - 10:00 PM' },
+        { days: 'الجمعة', daysEn: 'Friday', hours: 'مغلق', hoursEn: 'Closed' }
+      ];
+    } else if (presetType === 'split') {
+      preset = [
+        { days: 'الفترة الصباحية (السبت - الخميس)', daysEn: 'Morning Shift (Sat - Thu)', hours: '9:00 ص - 1:00 م', hoursEn: '9:00 AM - 1:00 PM' },
+        { days: 'الفترة المسائية (السبت - الخميس)', daysEn: 'Evening Shift (Sat - Thu)', hours: '5:00 م - 9:30 م', hoursEn: '5:00 PM - 9:30 PM' },
+        { days: 'الجمعة', daysEn: 'Friday', hours: 'عطلة أسبوعية', hoursEn: 'Weekend Off' }
+      ];
+    } else if (presetType === 'allday') {
+      preset = [
+        { days: 'طوال أيام الأسبوع (يومياً)', daysEn: 'Everyday (7 Days a Week)', hours: '10:00 ص - 10:00 م', hoursEn: '10:00 AM - 10:00 PM' }
+      ];
+    }
+    setDoctor(prev => ({
+      ...prev,
+      clinic: {
+        ...prev.clinic,
+        workingHours: preset
       }
     }));
   };
@@ -589,6 +670,16 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
             <span>{showLivePreview ? 'إخفاء المعاينة' : 'إظهار المعاينة الحية'}</span>
           </button>
 
+          {/* EasyWeb Quick Generator */}
+          <button
+            onClick={() => setIsEasyWebOpen(true)}
+            className="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-teal-700 hover:from-amber-600 hover:to-teal-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
+            title="توليد أو إعادة صياغة الموقع بسرعة بـ إيزي ويب"
+          >
+            <Zap className="w-3.5 h-3.5 text-amber-200 fill-amber-200" />
+            <span>⚡ إيزي ويب</span>
+          </button>
+
           {/* Direct Public Page */}
           <button
             onClick={() => onOpenPublicSite(doctor.slug)}
@@ -850,6 +941,70 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                         </button>
                       );
                     })}
+                  </div>
+                </div>
+
+                {/* Hero Icon & Accreditation Badge Selector */}
+                <div className="space-y-3 p-3.5 bg-slate-50 rounded-2xl border border-slate-200/80 shadow-2xs">
+                  <div className="flex items-center justify-between">
+                    <label className="block text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <ShieldCheck className="w-4 h-4 text-teal-800" />
+                      <span>أيقونة وشارة الهيرو (Hero Icon & Accreditation Badge)</span>
+                    </label>
+                    <span className="text-[10px] text-teal-800 font-bold flex items-center gap-1">
+                      <MedicalHeroIcon iconId={doctor.heroIcon || 'shield'} className="w-3.5 h-3.5 text-teal-700" />
+                      <span>الأيقونة الحالية</span>
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    اختر الأيقونة التي تظهر في شريط الهيرو والترخيص وشعار رأس الصفحة لتلائم تخصصك بدقة.
+                  </p>
+
+                  {/* Icon Selection Grid */}
+                  <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 pt-1">
+                    {AVAILABLE_HERO_ICONS.map((ico) => {
+                      const isSel = (doctor.heroIcon || 'shield') === ico.id;
+                      return (
+                        <button
+                          key={ico.id}
+                          type="button"
+                          onClick={() => handleFieldChange('heroIcon', ico.id)}
+                          className={`p-2 rounded-xl border text-center transition-all flex flex-col items-center justify-center gap-1 cursor-pointer ${
+                            isSel
+                              ? 'border-teal-700 bg-white text-teal-900 ring-2 ring-teal-700 shadow-xs font-bold'
+                              : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'
+                          }`}
+                          title={ico.nameEn}
+                        >
+                          <MedicalHeroIcon iconId={ico.id} className={`w-5 h-5 ${isSel ? 'text-teal-800' : 'text-slate-500'}`} />
+                          <span className="text-[10px] truncate max-w-full">{ico.nameAr.split(' ')[0]}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* Custom Badge Text */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2 border-t border-slate-200/60">
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-700 mb-0.5">نص الشارة بجانب الأيقونة (بالعربية)</label>
+                      <input
+                        type="text"
+                        value={doctor.heroBadgeText || ''}
+                        onChange={(e) => handleFieldChange('heroBadgeText', e.target.value)}
+                        placeholder="مرخص ومعتمد رسمياً"
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] font-bold text-slate-700 mb-0.5">نص الشارة بالإنجليزية (English)</label>
+                      <input
+                        type="text"
+                        value={doctor.heroBadgeTextEn || ''}
+                        onChange={(e) => handleFieldChange('heroBadgeTextEn', e.target.value)}
+                        placeholder="Officially Licensed & Certified"
+                        className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg text-xs text-left font-mono"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -1262,6 +1417,161 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
                     />
                   </div>
                 </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-slate-700">هاتف الطوارئ (اختياري)</label>
+                    <input
+                      type="text"
+                      value={doctor.clinic?.emergencyPhone || ''}
+                      onChange={(e) => handleClinicChange('emergencyPhone', e.target.value)}
+                      placeholder="+2010..."
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono text-left"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block text-xs font-semibold text-slate-700">رابط موقع العيادة على خرائط جوجل (Google Maps)</label>
+                    <input
+                      type="url"
+                      value={doctor.clinic?.googleMapsUrl || ''}
+                      onChange={(e) => handleClinicChange('googleMapsUrl', e.target.value)}
+                      placeholder="https://maps.google.com/?q=..."
+                      className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl font-mono text-left dir-ltr"
+                    />
+                  </div>
+                </div>
+
+                {/* CLINIC SCHEDULE & WORKING HOURS MANAGER */}
+                <div className="pt-4 border-t border-slate-200/80 space-y-3">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <div>
+                      <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                        <Clock className="w-4 h-4 text-teal-800" />
+                        <span>جدول مواعيد العيادة وساعات العمل (Working Hours Schedule)</span>
+                      </h4>
+                      <p className="text-[11px] text-slate-500 mt-0.5">
+                        تحكم في أيام وساعات استقبال المرضى لتظهر بدقة في جدول المواعيد على موقعك.
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={handleAddWorkingHour}
+                      className="px-3 py-1.5 bg-teal-800 hover:bg-teal-900 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1 self-start sm:self-auto cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                      <span>إضافة موعد جديد</span>
+                    </button>
+                  </div>
+
+                  {/* Schedule Quick Presets */}
+                  <div className="p-3 bg-teal-50/50 rounded-xl border border-teal-200/60 space-y-1.5">
+                    <span className="block text-[11px] font-bold text-teal-950">نماذج جاهزة لملء جدول المواعيد بضغطة واحدة:</span>
+                    <div className="flex flex-wrap gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => handleApplySchedulePreset('standard')}
+                        className="px-2.5 py-1 bg-white hover:bg-teal-100 text-teal-900 border border-teal-200 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
+                      >
+                        أسبوعي قياسي (9ص - 9م)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleApplySchedulePreset('evening')}
+                        className="px-2.5 py-1 bg-white hover:bg-teal-100 text-teal-900 border border-teal-200 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
+                      >
+                        دوام مسائي (4م - 10م)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleApplySchedulePreset('split')}
+                        className="px-2.5 py-1 bg-white hover:bg-teal-100 text-teal-900 border border-teal-200 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
+                      >
+                        فترتين (صباحي + مسائي)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleApplySchedulePreset('allday')}
+                        className="px-2.5 py-1 bg-white hover:bg-teal-100 text-teal-900 border border-teal-200 rounded-lg text-[11px] font-bold transition-colors cursor-pointer"
+                      >
+                        طوال الأسبوع (10ص - 10م)
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* List of Working Hours */}
+                  <div className="space-y-2.5">
+                    {(!doctor.clinic?.workingHours || doctor.clinic.workingHours.length === 0) ? (
+                      <div className="p-4 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 text-slate-500 text-xs">
+                        لا توجد مواعيد مضافة حالياً. انقر على «إضافة موعد جديد» أو اختر أحد النماذج الجاهزة أعلاه.
+                      </div>
+                    ) : (
+                      doctor.clinic.workingHours.map((wh, idx) => (
+                        <div key={idx} className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                          <div className="flex items-center justify-between border-b border-slate-200/60 pb-1.5">
+                            <span className="text-xs font-bold text-slate-700">فترة المواعيد #{idx + 1}</span>
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveWorkingHour(idx)}
+                              className="p-1 text-slate-400 hover:text-rose-600 transition-colors cursor-pointer"
+                              title="حذف هذا الموعد"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                            <div>
+                              <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">الأيام (بالعربية)</label>
+                              <input
+                                type="text"
+                                value={wh.days}
+                                onChange={(e) => handleUpdateWorkingHour(idx, 'days', e.target.value)}
+                                placeholder="مثال: السبت - الأربعاء"
+                                className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg font-bold"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-semibold text-slate-600 mb-0.5">أوقات وساعات العمل (بالعربية)</label>
+                              <input
+                                type="text"
+                                value={wh.hours}
+                                onChange={(e) => handleUpdateWorkingHour(idx, 'hours', e.target.value)}
+                                placeholder="مثال: 9:00 ص - 9:00 م أو مغلق"
+                                className="w-full px-2.5 py-1.5 bg-white border border-slate-200 rounded-lg font-mono text-teal-900 font-bold"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-semibold text-slate-400 mb-0.5">الأيام بالإنجليزية (Days En)</label>
+                              <input
+                                type="text"
+                                value={wh.daysEn || ''}
+                                onChange={(e) => handleUpdateWorkingHour(idx, 'daysEn', e.target.value)}
+                                placeholder="Sat - Wed"
+                                className="w-full px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-left font-mono"
+                              />
+                            </div>
+
+                            <div>
+                              <label className="block text-[10px] font-semibold text-slate-400 mb-0.5">الساعات بالإنجليزية (Hours En)</label>
+                              <input
+                                type="text"
+                                value={wh.hoursEn || ''}
+                                onChange={(e) => handleUpdateWorkingHour(idx, 'hoursEn', e.target.value)}
+                                placeholder="9:00 AM - 9:00 PM"
+                                className="w-full px-2.5 py-1 bg-white border border-slate-200 rounded-lg text-left font-mono"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
               </div>
             )}
 
@@ -2005,6 +2315,16 @@ export const DoctorBuilder: React.FC<DoctorBuilderProps> = ({
         )}
 
       </div>
+
+      {/* EasyWeb Quick Generator Modal */}
+      <EasyWebModal
+        isOpen={isEasyWebOpen}
+        onClose={() => setIsEasyWebOpen(false)}
+        onGenerate={(generatedDoc) => {
+          setDoctor(generatedDoc);
+        }}
+        existingDoctor={doctor}
+      />
 
     </div>
   );

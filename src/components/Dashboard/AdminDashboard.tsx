@@ -43,6 +43,7 @@ interface AdminDashboardProps {
   isSyncing: boolean;
   onOpenFirebaseModal?: () => void;
   onOpenGitHubPagesModal?: () => void;
+  onOpenEasyWeb?: () => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -60,7 +61,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   onSyncCloud,
   isSyncing,
   onOpenFirebaseModal,
-  onOpenGitHubPagesModal
+  onOpenGitHubPagesModal,
+  onOpenEasyWeb
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'published' | 'draft'>('all');
@@ -199,9 +201,20 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <span>استيراد JSON</span>
             </button>
 
+            {onOpenEasyWeb && (
+              <button
+                onClick={onOpenEasyWeb}
+                className="px-4 py-2 bg-gradient-to-r from-amber-500 via-amber-600 to-teal-700 hover:from-amber-600 hover:to-teal-800 text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer transform hover:scale-[1.02]"
+                title="إنشاء موقع متكامل فوري في دقيقة واحدة"
+              >
+                <Sparkles className="w-4 h-4 text-amber-200 animate-pulse" />
+                <span>⚡ إيزي ويب (إنشاء موقع فوري)</span>
+              </button>
+            )}
+
             <button
               onClick={onAddNewDoctor}
-              className="px-4 py-2 bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5"
+              className="px-4 py-2 bg-teal-800 hover:bg-teal-900 text-white text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 cursor-pointer"
             >
               <Plus className="w-4 h-4" />
               <span>إضافة موقع طبيب جديد</span>

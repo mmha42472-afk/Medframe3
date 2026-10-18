@@ -29,6 +29,7 @@ import { AdminLoginModal } from './components/Auth/AdminLoginModal';
 import { NewDoctorModal } from './components/Builder/NewDoctorModal';
 import { FirebaseConfigModal } from './components/Common/FirebaseConfigModal';
 import { GitHubPagesModal } from './components/Common/GitHubPagesModal';
+import { EasyWebModal } from './components/Builder/EasyWebModal';
 import { 
   CheckCircle2, 
   AlertCircle, 
@@ -66,6 +67,7 @@ function MainApp() {
   const [isNewDoctorModalOpen, setIsNewDoctorModalOpen] = useState(false);
   const [isFirebaseModalOpen, setIsFirebaseModalOpen] = useState(false);
   const [isGitHubPagesModalOpen, setIsGitHubPagesModalOpen] = useState(false);
+  const [isEasyWebModalOpen, setIsEasyWebModalOpen] = useState(false);
 
   // Toast feedback
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
@@ -274,6 +276,27 @@ function MainApp() {
     }
   };
 
+  // EasyWeb generator handler
+  const handleEasyWebGenerate = async (generatedDoc: DoctorProfile, openInBuilder?: boolean) => {
+    try {
+      await saveDoctorProfile(generatedDoc);
+      setDoctors(prev => {
+        const filtered = prev.filter(d => d.id !== generatedDoc.id);
+        return [generatedDoc, ...filtered];
+      });
+      showToast(`تم إنشاء وتجهيز موقع ${generatedDoc.name} بنجاح عبر إيزي ويب!`, 'success');
+
+      if (openInBuilder) {
+        setActiveDoctor(generatedDoc);
+        navigateTo('builder');
+      } else {
+        openDoctorPublic(generatedDoc.slug);
+      }
+    } catch {
+      showToast('حدث خطأ أثناء حفظ موقع الطبيب المنشأ.', 'error');
+    }
+  };
+
   // Delete doctor
   const handleDeleteDoctor = async (id: string) => {
     try {
@@ -475,6 +498,13 @@ function MainApp() {
                 isSyncing={isSyncing}
                 onOpenFirebaseModal={() => setIsFirebaseModalOpen(true)}
                 onOpenGitHubPagesModal={() => setIsGitHubPagesModalOpen(true)}
+                onOpenEasyWeb={() => {
+                  if (!isAdmin) {
+                    setIsLoginModalOpen(true);
+                    return;
+                  }
+                  setIsEasyWebModalOpen(true);
+                }}
               />
             ) : (
               <div className="max-w-md mx-auto py-16 text-center bg-white rounded-3xl border border-slate-200/80 p-8 shadow-sm space-y-5">
@@ -602,6 +632,12 @@ function MainApp() {
       <GitHubPagesModal
         isOpen={isGitHubPagesModalOpen}
         onClose={() => setIsGitHubPagesModalOpen(false)}
+      />
+
+      <EasyWebModal
+        isOpen={isEasyWebModalOpen}
+        onClose={() => setIsEasyWebModalOpen(false)}
+        onGenerate={handleEasyWebGenerate}
       />
 
       {/* Floating Toast Container */}
