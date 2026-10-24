@@ -36,3 +36,40 @@
 .tabular-nums {
   font-variant-numeric: tabular-nums;
 }
+
+/* ============================================================
+   Doctor website (public) — scoped design tokens
+   Paper, ink and a single accent (the doctor's theme colour,
+   injected as --accent / --accent-dark / --accent-soft).
+   ============================================================ */
+.mf-site {
+  --paper: #F7F5F0;
+  --paper-2: #EFECE4;
+  --card: #FFFFFF;
+  --ink: #101828;
+  --ink-2: #1D2939;
+  --muted: #5B6474;
+  --line: rgba(16, 24, 40, 0.10);
+  --line-strong: rgba(16, 24, 40, 0.22);
+  --night: #0E1626;
+  font-family: 'IBM Plex Sans Arabic', 'Alexandria Variable', 'Cairo', system-ui, sans-serif;
+  color: var(--ink);
+  background: var(--paper);
+  font-size: 16px;
+  line-height: 1.75;
+  text-align: start;
+  -webkit-font-smoothing: antialiased;
+}
+.mf-site .font-display { font-family: 'Alexandria Variable', 'Alexandria', 'IBM Plex Sans Arabic', 'Cairo', sans-serif; letter-spacing: 0; }
+.mf-site[dir="ltr"] .font-display { letter-spacing: -0.02em; }
+.mf-site ::selection { background: var(--accent); color: #fff; }
+.mf-site .mf-grain::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none; z-index: 0; opacity: .35; mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0.45 0 0 0 0 0.42 0 0 0 0 0.38 0 0 0 .18 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+.mf-site .mf-link { background-image: linear-gradient(currentColor, currentColor); background-size: 0% 1px; background-repeat: no-repeat; background-position: 100% 100%; transition: background-size .35s cubic-bezier(.22,1,.36,1); }
+.mf-site[dir="ltr"] .mf-link { background-position: 0 100%; }
+.mf-site .mf-link:hover { background-size: 100% 1px; }
+@media (prefers-reduced-motion: reduce) {
+  .mf-site *, .mf-site *::before, .mf-site *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+}
