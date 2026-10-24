@@ -1,47 +1,34 @@
 import React, { useState, useEffect } from 'react';
-import { DoctorProfile, PatientTestimonial, DoctorPhoto } from '../../types/doctor';
-import { getTheme, getSectionBgClasses } from '../../utils/theme';
+import { DoctorProfile, PatientTestimonial, DoctorPhoto, SectionBgStyle } from '../../types/doctor';
+import { getTheme } from '../../utils/theme';
 import { useAuth } from '../../context/AuthContext';
-import { DoctorAvatar } from '../Common/DoctorAvatar';
-import { MedicalHeroIcon } from '../Common/MedicalHeroIcon';
+import '@fontsource-variable/alexandria';
+import '@fontsource/ibm-plex-sans-arabic/300.css';
+import '@fontsource/ibm-plex-sans-arabic/400.css';
+import '@fontsource/ibm-plex-sans-arabic/500.css';
+import '@fontsource/ibm-plex-sans-arabic/600.css';
+import '@fontsource/ibm-plex-sans-arabic/700.css';
 import { AppointmentModal } from './AppointmentModal';
 import { AddReviewModal } from './AddReviewModal';
-import { 
-  Medical3DDNA, 
-  Medical3DHeartPulse, 
-  Medical3DShield, 
-  FloatingMedicalParticles 
-} from '../Common/Medical3DVectors';
-import { 
-  Award, 
-  MapPin, 
-  Phone, 
-  Calendar, 
-  Clock, 
-  Star, 
-  ChevronDown, 
-  Share2, 
-  CheckCircle, 
-  Building2, 
-  FileText, 
-  HeartHandshake, 
-  ShieldCheck, 
-  MessageSquare, 
-  BookOpen, 
-  HelpCircle, 
-  ExternalLink, 
-  Check, 
-  Stethoscope,
+import { Reveal, CornerFrame, PlusField, PulseLine, SectionHead, ArchPortrait, QuoteMark, ChatGlyph, fmtIndex } from './site/Ornaments';
+import {
+  MapPin,
+  Phone,
+  Clock,
+  Star,
+  Share2,
+  Check,
   Globe,
   Plus,
-  Sparkles,
+  Minus,
   Lock,
-  Maximize2,
-  Image as ImageIcon,
+  ArrowUpLeft,
+  ArrowUpRight,
   ChevronLeft,
   ChevronRight,
   X as CloseIcon,
-  ZoomIn
+  Navigation,
+  BadgeCheck
 } from 'lucide-react';
 
 interface DoctorWebsiteViewProps {
@@ -52,6 +39,27 @@ interface DoctorWebsiteViewProps {
   onUpdateDoctor?: (updated: DoctorProfile) => void;
   onOpenAdminLogin?: () => void;
 }
+
+/* Section surface, honouring the builder's per-section style choice. */
+const tone = (style: SectionBgStyle | undefined, fallback: SectionBgStyle): { cls: string; dark: boolean } => {
+  switch (style || fallback) {
+    case 'dark': return { cls: 'bg-[var(--night)] text-white', dark: true };
+    case 'tinted': return { cls: 'bg-[color-mix(in_srgb,var(--accent)_6%,var(--paper))]', dark: false };
+    case 'subtle': return { cls: 'bg-[var(--paper-2)]', dark: false };
+    case 'white': return { cls: 'bg-white', dark: false };
+    case 'glass': return { cls: 'bg-white/60', dark: false };
+    default: return { cls: 'bg-[var(--paper)]', dark: false };
+  }
+};
+
+const countryFromPhone = (phone?: string) => {
+  const p = (phone || '').replace(/[^0-9+]/g, '');
+  if (p.startsWith('+20') || p.startsWith('0020') || /^01[0125]/.test(p)) return 'EG';
+  if (p.startsWith('+966')) return 'SA';
+  if (p.startsWith('+971')) return 'AE';
+  if (p.startsWith('+965')) return 'KW';
+  return undefined;
+};
 
 export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
   doctor,
@@ -64,1278 +72,764 @@ export const DoctorWebsiteView: React.FC<DoctorWebsiteViewProps> = ({
   const { isAdmin } = useAuth();
   const theme = getTheme(doctor?.themeColor || 'teal');
   const [lang, setLang] = useState<'ar' | 'en'>('ar');
+  const isEn = lang === 'en';
+  const t = (ar: string, en: string) => (isEn ? en : ar);
+  const pick = (ar?: string, en?: string) => (isEn ? (en || ar || '') : (ar || ''));
+
   const faqs = doctor?.faqs || [];
   const articles = doctor?.articles || [];
   const services = doctor?.services || [];
   const qualifications = doctor?.qualifications || [];
   const experience = doctor?.experience || [];
   const photos = doctor?.photos || [];
-  const clinic = doctor?.clinic || {
-    name: 'العيادة الطبية',
-    city: 'الرياض',
-    address: '',
-    phone: '',
-    whatsapp: '',
-    workingHours: []
-  };
+  const clinic = doctor?.clinic || { name: '', city: '', address: '', phone: '', whatsapp: '', workingHours: [] };
+  const subspecialties = (isEn && doctor.subspecialtiesEn?.length ? doctor.subspecialtiesEn : doctor.subspecialties) || [];
 
   const [activeFaq, setActiveFaq] = useState<string | null>(faqs[0]?.id || null);
   const [selectedArticle, setSelectedArticle] = useState<typeof articles[0] | null>(null);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [isAddReviewModalOpen, setIsAddReviewModalOpen] = useState(false);
   const [linkCopied, setLinkCopied] = useState(false);
-
-  // Doctor photo zoom lightbox state
   const [isDoctorPhotoZoomed, setIsDoctorPhotoZoomed] = useState(false);
-
-  // Gallery photo lightbox and category filter
   const [selectedGalleryPhoto, setSelectedGalleryPhoto] = useState<DoctorPhoto | null>(null);
   const [galleryFilter, setGalleryFilter] = useState<string>('all');
-
-  // Photo gallery categories & filters
-  const photoCategories = [
-    { id: 'all', nameAr: 'كل الصور', nameEn: 'All Photos' },
-    { id: 'clinic', nameAr: 'صور العيادة والاستقبال', nameEn: 'Clinic & Rooms' },
-    { id: 'equipment', nameAr: 'الأجهزة والتقنيات', nameEn: 'Medical Tech' },
-    { id: 'certificates', nameAr: 'الشهادات والاعتماد', nameEn: 'Certificates' },
-    { id: 'cases', nameAr: 'حالات طبية وسريرية', nameEn: 'Clinical Cases' },
-    { id: 'general', nameAr: 'صور عامة', nameEn: 'General' },
-  ];
-
-  const getCategoryLabel = (cat?: string, isEnglish = false) => {
-    const match = photoCategories.find(c => c.id === cat);
-    if (!match) return isEnglish ? 'Medical' : 'طبي';
-    return isEnglish ? match.nameEn : match.nameAr;
-  };
-
-  const filteredPhotos = (photos || []).filter(p => {
-    if (!p || !p.url) return false;
-    if (galleryFilter === 'all') return true;
-    return p.category === galleryFilter;
-  });
-
-  // Calculate unique categories present in doctor's photos
-  const availableCategories = photoCategories.filter(cat => {
-    if (cat.id === 'all') return true;
-    return (photos || []).some(p => p.category === cat.id);
-  });
-
-  // Local testimonials state for immediate review addition
+  const [scrolled, setScrolled] = useState(false);
   const [testimonials, setTestimonials] = useState<PatientTestimonial[]>(doctor?.testimonials || []);
 
-  const isEn = lang === 'en';
+  useEffect(() => { setTestimonials(doctor?.testimonials || []); }, [doctor?.testimonials]);
 
-  // Dynamic SEO & OpenGraph & Schema.org injection
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 24);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  const photoCategories = [
+    { id: 'all', nameAr: 'الكل', nameEn: 'All' },
+    { id: 'clinic', nameAr: 'العيادة', nameEn: 'Clinic' },
+    { id: 'equipment', nameAr: 'الأجهزة', nameEn: 'Technology' },
+    { id: 'certificates', nameAr: 'الشهادات', nameEn: 'Certificates' },
+    { id: 'cases', nameAr: 'حالات', nameEn: 'Cases' },
+    { id: 'general', nameAr: 'عام', nameEn: 'General' },
+  ];
+  const getCategoryLabel = (cat?: string) => {
+    const match = photoCategories.find(c => c.id === cat);
+    return match ? (isEn ? match.nameEn : match.nameAr) : t('طبي', 'Medical');
+  };
+  const filteredPhotos = photos.filter(p => p && p.url && (galleryFilter === 'all' || p.category === galleryFilter));
+  const availableCategories = photoCategories.filter(cat => cat.id === 'all' || photos.some(p => p.category === cat.id));
+
+  /* ---------- SEO / OpenGraph / Schema.org ---------- */
   useEffect(() => {
     const originalTitle = document.title;
     const pageTitle = isEn
-      ? (doctor.seo?.metaTitleEn || `${doctor.nameEn || doctor.name} | Medical Clinic`)
+      ? (doctor.seo?.metaTitleEn || `${doctor.nameEn || doctor.name} | ${doctor.titleEn || doctor.title}`)
       : (doctor.seo?.metaTitle || `${doctor.name} | ${doctor.title}`);
     document.title = pageTitle;
-
     const setMetaTag = (attribute: 'name' | 'property', key: string, content: string) => {
       let meta = document.querySelector(`meta[${attribute}="${key}"]`);
-      if (!meta) {
-        meta = document.createElement('meta');
-        meta.setAttribute(attribute, key);
-        document.head.appendChild(meta);
-      }
+      if (!meta) { meta = document.createElement('meta'); meta.setAttribute(attribute, key); document.head.appendChild(meta); }
       meta.setAttribute('content', content);
     };
-
-    const metaDesc = isEn 
-      ? (doctor.seo?.metaDescriptionEn || doctor.bioEn || doctor.bio)
-      : (doctor.seo?.metaDescription || doctor.bio);
-    if (metaDesc) {
-      setMetaTag('name', 'description', metaDesc);
-      setMetaTag('property', 'og:description', metaDesc);
-      setMetaTag('name', 'twitter:description', metaDesc);
-    }
-
+    const metaDesc = isEn ? (doctor.seo?.metaDescriptionEn || doctor.bioEn || doctor.bio) : (doctor.seo?.metaDescription || doctor.bio);
+    if (metaDesc) { setMetaTag('name', 'description', metaDesc); setMetaTag('property', 'og:description', metaDesc); setMetaTag('name', 'twitter:description', metaDesc); }
     setMetaTag('property', 'og:title', pageTitle);
     setMetaTag('name', 'twitter:title', pageTitle);
     setMetaTag('property', 'og:type', 'website');
     setMetaTag('name', 'twitter:card', 'summary_large_image');
-
     const shareImage = doctor.seo?.ogImage || doctor.avatarUrl;
-    if (shareImage) {
-      setMetaTag('property', 'og:image', shareImage);
-      setMetaTag('name', 'twitter:image', shareImage);
-    }
+    if (shareImage) { setMetaTag('property', 'og:image', shareImage); setMetaTag('name', 'twitter:image', shareImage); }
+    if (doctor.seo?.keywords?.length) setMetaTag('name', 'keywords', doctor.seo.keywords.join(', '));
 
-    if (doctor.seo?.keywords && doctor.seo.keywords.length > 0) {
-      setMetaTag('name', 'keywords', doctor.seo.keywords.join(', '));
-    }
-
-    // Schema.org Physician JSON-LD
     const scriptId = 'doctor-seo-jsonld';
     let scriptTag = document.getElementById(scriptId) as HTMLScriptElement | null;
     if (doctor.seo?.structuredDataEnabled !== false) {
-      if (!scriptTag) {
-        scriptTag = document.createElement('script');
-        scriptTag.id = scriptId;
-        scriptTag.type = 'application/ld+json';
-        document.head.appendChild(scriptTag);
-      }
+      if (!scriptTag) { scriptTag = document.createElement('script'); scriptTag.id = scriptId; scriptTag.type = 'application/ld+json'; document.head.appendChild(scriptTag); }
       scriptTag.text = JSON.stringify({
         '@context': 'https://schema.org',
         '@type': 'Physician',
-        'name': doctor.name,
-        'alternateName': doctor.nameEn || undefined,
-        'image': shareImage || undefined,
-        'description': doctor.bio,
-        'medicalSpecialty': doctor.specialty,
-        'telephone': doctor.clinic?.phone,
-        'address': {
-          '@type': 'PostalAddress',
-          'streetAddress': doctor.clinic?.address,
-          'addressLocality': doctor.clinic?.city,
-          'addressCountry': 'SA'
-        }
+        name: doctor.name,
+        alternateName: doctor.nameEn || undefined,
+        image: shareImage || undefined,
+        description: doctor.bio,
+        medicalSpecialty: doctor.specialty,
+        telephone: doctor.clinic?.phone,
+        address: { '@type': 'PostalAddress', streetAddress: doctor.clinic?.address, addressLocality: doctor.clinic?.city, addressCountry: countryFromPhone(doctor.clinic?.phone) }
       });
     }
-
-    return () => {
-      document.title = originalTitle;
-      const jsonLd = document.getElementById(scriptId);
-      if (jsonLd) jsonLd.remove();
-    };
+    return () => { document.title = originalTitle; document.getElementById(scriptId)?.remove(); };
   }, [doctor, isEn]);
 
-  const config = doctor.sectionsConfig || {
-    hero: true,
-    about: true,
-    qualifications: true,
-    experience: true,
-    services: true,
-    clinic: true,
-    articles: true,
-    faqs: true,
-    testimonials: true,
-    contact: true
-  };
+  const config = doctor.sectionsConfig || { hero: true, about: true, qualifications: true, experience: true, services: true, clinic: true, articles: true, faqs: true, testimonials: true, contact: true };
 
   const handleCopyLink = () => {
     const shareUrl = `${window.location.origin}${window.location.pathname}#/doctor/${doctor.slug}`;
-    navigator.clipboard.writeText(shareUrl).then(() => {
-      setLinkCopied(true);
-      setTimeout(() => setLinkCopied(false), 2500);
-    });
+    navigator.clipboard.writeText(shareUrl).then(() => { setLinkCopied(true); setTimeout(() => setLinkCopied(false), 2500); });
   };
 
   const handleAddPatientReview = (newRev: PatientTestimonial) => {
     const updatedReviews = [newRev, ...testimonials];
     setTestimonials(updatedReviews);
-    if (onUpdateDoctor) {
-      onUpdateDoctor({
-        ...doctor,
-        testimonials: updatedReviews,
-        reviewCount: (doctor.reviewCount || 0) + 1
-      });
-    }
+    onUpdateDoctor?.({ ...doctor, testimonials: updatedReviews, reviewCount: (doctor.reviewCount || 0) + 1 });
   };
 
-  // Section style classes
+  const scrollTo = (id: string) => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  /* ---------- styling inputs from the builder ---------- */
   const styles = doctor.customStyles || {};
-  const heroStyle = getSectionBgClasses(styles.heroBg, doctor.themeColor);
-  const aboutStyle = getSectionBgClasses(styles.aboutBg, doctor.themeColor);
-  const servicesStyle = getSectionBgClasses(styles.servicesBg, doctor.themeColor);
-  const qualificationsStyle = getSectionBgClasses(styles.qualificationsBg, doctor.themeColor);
-  const clinicStyle = getSectionBgClasses(styles.clinicBg, doctor.themeColor);
-  const galleryStyle = getSectionBgClasses(styles.galleryBg, doctor.themeColor);
-  const articlesStyle = getSectionBgClasses(styles.articlesBg, doctor.themeColor);
-  const faqsStyle = getSectionBgClasses(styles.faqsBg, doctor.themeColor);
-  const testimonialsStyle = getSectionBgClasses(styles.testimonialsBg, doctor.themeColor);
+  const accent = styles.customHexPrimary || theme.primary;
+  const accentDark = styles.customHexSecondary || theme.primaryDark;
+  const cssVars = {
+    '--accent': accent,
+    '--accent-dark': accentDark,
+    '--accent-soft': theme.primaryLight,
+  } as React.CSSProperties;
 
-  // Dynamic avatar size mapping for hero portrait
-  const avatarSize = doctor.avatarSize || '2xl';
-  const avatarSizes: Record<string, { container: string; height: string; avatarProp: 'md' | 'lg' | 'xl' | '2xl' | '3xl' | 'full' }> = {
-    md: { container: 'max-w-xs', height: 'h-64 sm:h-72', avatarProp: 'xl' },
-    lg: { container: 'max-w-sm', height: 'h-72 sm:h-80', avatarProp: '2xl' },
-    xl: { container: 'max-w-md', height: 'h-80 sm:h-96', avatarProp: '2xl' },
-    '2xl': { container: 'max-w-lg', height: 'h-96 sm:h-[440px]', avatarProp: '3xl' },
-    '3xl': { container: 'max-w-xl', height: 'h-[440px] sm:h-[540px]', avatarProp: '3xl' },
-    full: { container: 'max-w-2xl', height: 'h-[500px] sm:h-[620px]', avatarProp: 'full' }
-  };
-  const activeAvatarSize = avatarSizes[avatarSize] || avatarSizes['2xl'];
-
-  // Overall Page Background styling
-  const pageBgThemeClasses: Record<string, string> = {
-    default: 'bg-slate-50 text-slate-900',
-    white: 'bg-white text-slate-900',
-    slate: 'bg-slate-100 text-slate-900',
-    cream: 'bg-stone-50 text-stone-900',
-    cool: 'bg-sky-50/50 text-slate-900',
-    dark: 'bg-slate-950 text-slate-100'
-  };
-  const pageBgClass = styles.pageBgTheme && pageBgThemeClasses[styles.pageBgTheme]
-    ? pageBgThemeClasses[styles.pageBgTheme]
-    : 'bg-slate-50 text-slate-900';
-
-  const customPageBgStyle: React.CSSProperties = {
-    ...(styles.pageBgColor ? { backgroundColor: styles.pageBgColor } : {}),
+  const pageBgOverride: React.CSSProperties = {
+    ...(styles.pageBgColor ? { background: styles.pageBgColor } : {}),
     ...(styles.pageBgImage ? { backgroundImage: `url(${styles.pageBgImage})`, backgroundSize: 'cover', backgroundAttachment: 'fixed' } : {})
   };
 
+  const heroT = tone(styles.heroBg, 'default');
+  const aboutT = tone(styles.aboutBg, 'default');
+  const qualT = tone(styles.qualificationsBg, 'subtle');
+  const servT = tone(styles.servicesBg, 'default');
+  const clinicT = tone(styles.clinicBg, 'default');
+  const galleryT = tone(styles.galleryBg, 'default');
+  const testiT = tone(styles.testimonialsBg, 'tinted');
+  const artT = tone(styles.articlesBg, 'default');
+  const faqT = tone(styles.faqsBg, 'subtle');
+
+  const portraitHeights: Record<string, string> = {
+    md: 'h-[380px] sm:h-[440px]', lg: 'h-[420px] sm:h-[500px]', xl: 'h-[440px] sm:h-[540px]',
+    '2xl': 'h-[460px] sm:h-[580px]', '3xl': 'h-[480px] sm:h-[620px]', full: 'h-[500px] sm:h-[660px]'
+  };
+  const portraitH = portraitHeights[doctor.avatarSize || '2xl'] || portraitHeights['2xl'];
+
+  const waNumber = (clinic.whatsapp || '').replace(/[^0-9]/g, '');
+  const telNumber = (clinic.phone || '').replace(/[^0-9+]/g, '');
+  const waHref = waNumber ? `https://wa.me/${waNumber}?text=${encodeURIComponent(isEn ? `Hello, I would like to book an appointment with ${doctor.nameEn || doctor.name}.` : `السلام عليكم، حابب أحجز ميعاد مع ${doctor.name}.`)}` : '';
+  const Arrow = isEn ? ArrowUpRight : ArrowUpLeft;
+  const hasReviews = (doctor.reviewCount || 0) > 0 && (doctor.rating || 0) > 0;
+
+  /* navigation anchors (only for sections that exist) */
+  const navItems = [
+    config.about && { id: 'about', label: t('نبذة', 'About') },
+    config.services && services.length > 0 && { id: 'services', label: t('الخدمات', 'Services') },
+    config.clinic && { id: 'clinic-schedule', label: t('العيادة', 'Clinic') },
+    config.testimonials && testimonials.length > 0 && { id: 'reviews', label: t('آراء المرضى', 'Reviews') },
+    config.faqs && faqs.length > 0 && { id: 'faq', label: t('أسئلة', 'FAQ') },
+  ].filter(Boolean) as { id: string; label: string }[];
+
+  let sectionIndex = 0;
+  const nextIndex = () => ++sectionIndex;
+
+  const btnPrimary = 'inline-flex items-center justify-center gap-2.5 rounded-full bg-[var(--ink)] px-7 py-4 text-[15px] font-semibold text-white transition-all duration-300 hover:bg-[var(--accent-dark)] hover:shadow-[0_12px_30px_-12px_var(--accent)] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--accent)] cursor-pointer';
+  const btnGhost = 'inline-flex items-center justify-center gap-2.5 rounded-full border border-[var(--line-strong)] px-6 py-[15px] text-[15px] font-semibold text-[var(--ink)] transition-colors duration-300 hover:border-[var(--ink)] hover:bg-white focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[var(--accent)] cursor-pointer';
+
   return (
-    <div 
-      className={`min-h-screen ${pageBgClass} selection:bg-teal-500 selection:text-white relative overflow-x-hidden`}
-      style={customPageBgStyle}
-      dir={isEn ? 'ltr' : 'rtl'}
-    >
-      
-      {/* Background Pattern Overlay if configured */}
-      {styles.pageBgPattern === 'dots' && (
-        <div 
-          className="fixed inset-0 pointer-events-none opacity-25 z-0"
-          style={{
-            backgroundImage: 'radial-gradient(#64748b 1px, transparent 1px)',
-            backgroundSize: '24px 24px'
-          }}
-        />
-      )}
-      {styles.pageBgPattern === 'grid' && (
-        <div 
-          className="fixed inset-0 pointer-events-none opacity-20 z-0"
-          style={{
-            backgroundImage: 'linear-gradient(to right, #94a3b8 1px, transparent 1px), linear-gradient(to bottom, #94a3b8 1px, transparent 1px)',
-            backgroundSize: '32px 32px'
-          }}
-        />
-      )}
-      
-      {/* Admin Preview Toolbar ONLY if user is logged in as Admin */}
+    <div className="mf-site relative min-h-screen overflow-x-clip" style={{ ...cssVars, ...pageBgOverride }} dir={isEn ? 'ltr' : 'rtl'} lang={isEn ? 'en' : 'ar'}>
+
+      {styles.pageBgPattern === 'dots' && <div className="pointer-events-none fixed inset-0 z-0 opacity-25" style={{ backgroundImage: 'radial-gradient(var(--line-strong) 1px, transparent 1px)', backgroundSize: '24px 24px' }} />}
+      {styles.pageBgPattern === 'grid' && <div className="pointer-events-none fixed inset-0 z-0 opacity-30" style={{ backgroundImage: 'linear-gradient(to right, var(--line) 1px, transparent 1px), linear-gradient(to bottom, var(--line) 1px, transparent 1px)', backgroundSize: '40px 40px' }} />}
+
+      {/* ===== Admin-only bars (unchanged behaviour) ===== */}
       {isAdmin && isPreviewMode && (
-        <aside aria-label="Admin Preview Toolbar" className="sticky top-0 z-50 bg-slate-900 text-white px-4 py-2.5 flex items-center justify-between text-xs border-b border-slate-800 shadow-md">
+        <aside aria-label="Admin Preview Toolbar" className="sticky top-0 z-50 flex items-center justify-between bg-[var(--night)] px-4 py-2.5 text-xs text-white">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-amber-400"></span>
-            <span className="font-semibold">{isEn ? 'Live Doctor Website Preview' : 'وضع المعاينة الحية لصفحة الطبيب'}</span>
-            <span className="text-slate-400 hidden sm:inline">
-              ({doctor.status === 'published' ? (isEn ? 'Published Online' : 'منشور متاح للعامة') : (isEn ? 'Private Draft' : 'مسودة خاصة')})
-            </span>
+            <span className="h-2 w-2 rounded-full bg-amber-400" />
+            <span className="font-semibold">{t('وضع المعاينة الحية لصفحة الطبيب', 'Live Doctor Website Preview')}</span>
+            <span className="hidden text-white/50 sm:inline">({doctor.status === 'published' ? t('منشور متاح للعامة', 'Published Online') : t('مسودة خاصة', 'Private Draft')})</span>
           </div>
           <div className="flex items-center gap-2">
-            {onEditDoctor && (
-              <button
-                onClick={onEditDoctor}
-                className="px-3 py-1 bg-teal-800 hover:bg-teal-700 text-white font-medium rounded-lg transition-colors cursor-pointer"
-              >
-                {isEn ? 'Return to Builder' : 'العودة للمحرر'}
-              </button>
-            )}
-            {onBackToDashboard && (
-              <button
-                onClick={onBackToDashboard}
-                className="px-3 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg transition-colors cursor-pointer"
-              >
-                {isEn ? 'Dashboard' : 'لوحة التحكم'}
-              </button>
-            )}
+            {onEditDoctor && <button onClick={onEditDoctor} className="cursor-pointer rounded-lg bg-white/10 px-3 py-1 font-medium hover:bg-white/20">{t('العودة للمحرر', 'Return to Builder')}</button>}
+            {onBackToDashboard && <button onClick={onBackToDashboard} className="cursor-pointer rounded-lg px-3 py-1 text-white/70 hover:bg-white/10">{t('لوحة التحكم', 'Dashboard')}</button>}
           </div>
         </aside>
       )}
-
-      {/* Draft Notification Banner ONLY for Admin */}
       {isAdmin && !isPreviewMode && doctor.status === 'draft' && (
-        <aside aria-label="Draft Notice" className="bg-amber-400 text-slate-950 px-4 py-2.5 flex flex-wrap items-center justify-between gap-2 text-xs font-semibold shadow-xs">
+        <aside aria-label="Draft Notice" className="flex flex-wrap items-center justify-between gap-2 bg-amber-300 px-4 py-2.5 text-xs font-semibold text-slate-950">
           <div className="flex items-center gap-2">
-            <Lock className="w-4 h-4 shrink-0 text-slate-900" />
+            <Lock className="h-4 w-4 shrink-0" />
             <span>هذا الموقع محفوظ حالياً كـ (مسودة خاصة Draft) ولا يمكن لعامة الزوار تصفحه حتى تقوم بنشره.</span>
           </div>
           {onUpdateDoctor && (
-            <button
-              onClick={() => onUpdateDoctor({ ...doctor, status: 'published', updatedAt: new Date().toISOString() })}
-              className="px-3.5 py-1.5 bg-slate-950 hover:bg-black text-white rounded-lg text-xs font-bold transition-all shadow-sm cursor-pointer"
-            >
+            <button onClick={() => onUpdateDoctor({ ...doctor, status: 'published', updatedAt: new Date().toISOString() })} className="cursor-pointer rounded-lg bg-slate-950 px-3.5 py-1.5 text-xs font-bold text-white hover:bg-black">
               نشر الموقع أونلاين للعامة الآن
             </button>
           )}
         </aside>
       )}
 
-      {/* Website Top Bar */}
-      <header className="bg-white/95 backdrop-blur-md border-b border-slate-200/80 sticky top-0 z-30 shadow-xs">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
-          
-          {/* Clinic Brand */}
-          <div className="flex items-center gap-3">
-            <div 
-              className="w-10 h-10 rounded-xl flex items-center justify-center text-white shrink-0 shadow-xs"
-              style={{ background: theme.primary }}
-            >
-              <MedicalHeroIcon iconId={doctor.heroIcon || 'stethoscope'} className="w-5 h-5 text-white" />
-            </div>
-            <div>
-              <span className="font-bold text-slate-900 text-sm sm:text-base block leading-tight">
-                {isEn ? (doctor.nameEn || doctor.name) : doctor.name}
+      {/* ===== Header ===== */}
+      <header className={`sticky top-0 z-30 transition-all duration-300 ${scrolled ? 'border-b border-[var(--line)] bg-[color-mix(in_srgb,var(--paper)_88%,transparent)] backdrop-blur-xl' : 'border-b border-transparent bg-transparent'}`}>
+        <div className="mx-auto flex h-[72px] max-w-[1200px] items-center justify-between gap-4 px-5 sm:px-8">
+          <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="group flex min-w-0 items-center gap-3 text-start cursor-pointer">
+            <span className="relative flex h-10 w-10 shrink-0 items-center justify-center">
+              <CornerFrame inset={0} size={10} />
+              <span className="font-display text-[15px] font-semibold text-[var(--accent-dark)]">
+                {(pick(doctor.name, doctor.nameEn).replace(/^(د\.?|الدكتور|الدكتورة|Dr\.?)\s+/i, '').trim()[0]) || '+'}
               </span>
-              <span className="text-[11px] text-slate-500 font-medium truncate max-w-[200px] sm:max-w-xs block">
-                {isEn ? (doctor.clinic.nameEn || doctor.clinic.name) : doctor.clinic.name}
-              </span>
-            </div>
-          </div>
+            </span>
+            <span className="min-w-0">
+              <span className="font-display block truncate text-[15px] font-semibold leading-tight text-[var(--ink)]">{pick(doctor.name, doctor.nameEn)}</span>
+              <span className="block truncate text-[12.5px] text-[var(--muted)]">{pick(doctor.specialty, doctor.specialtyEn)}</span>
+            </span>
+          </button>
 
-          {/* Quick Actions & Language Switcher */}
-          <div className="flex items-center gap-2 sm:gap-3">
-            
-            {/* Bilingual Switcher */}
-            <button
-              onClick={() => setLang(isEn ? 'ar' : 'en')}
-              className="px-2.5 py-1.5 rounded-xl border border-slate-200 hover:border-slate-300 bg-slate-50 hover:bg-slate-100 text-xs font-bold text-slate-700 flex items-center gap-1.5 transition-all cursor-pointer"
-              title={isEn ? 'التبديل إلى العربية' : 'Switch to English'}
-            >
-              <Globe className="w-3.5 h-3.5 text-teal-700" />
-              <span>{isEn ? 'العربية' : 'English'}</span>
+          <nav aria-label={t('أقسام الصفحة', 'Page sections')} className="hidden items-center gap-7 text-[14px] text-[var(--ink-2)] lg:flex">
+            {navItems.map(n => (
+              <button key={n.id} type="button" onClick={() => scrollTo(n.id)} className="mf-link cursor-pointer pb-0.5 hover:text-[var(--ink)]">{n.label}</button>
+            ))}
+          </nav>
+
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <button onClick={() => setLang(isEn ? 'ar' : 'en')} className="flex h-11 items-center gap-1.5 rounded-full px-3 text-[13px] font-semibold text-[var(--ink-2)] hover:bg-black/5 cursor-pointer" aria-label={t('Switch to English', 'التبديل إلى العربية')}>
+              <Globe className="h-4 w-4" />
+              <span>{isEn ? 'عربي' : 'EN'}</span>
             </button>
-
-            <button
-              onClick={handleCopyLink}
-              className="p-2 sm:px-3 sm:py-1.5 rounded-lg border border-slate-200 text-xs font-semibold text-slate-600 hover:bg-slate-50 transition-colors flex items-center gap-1.5 cursor-pointer"
-              title="نسخ رابط الموقع للمشاركة"
-            >
-              {linkCopied ? (
-                <>
-                  <Check className="w-4 h-4 text-emerald-600" />
-                  <span className="hidden sm:inline text-emerald-600">{isEn ? 'Copied' : 'تم النسخ'}</span>
-                </>
-              ) : (
-                <>
-                  <Share2 className="w-4 h-4 text-slate-500" />
-                  <span className="hidden sm:inline">{isEn ? 'Share' : 'مشاركة الرابط'}</span>
-                </>
-              )}
+            <button onClick={handleCopyLink} className="flex h-11 w-11 items-center justify-center rounded-full text-[var(--ink-2)] hover:bg-black/5 cursor-pointer" aria-label={t('نسخ رابط الموقع', 'Copy link')} title={t('نسخ رابط الموقع', 'Copy link')}>
+              {linkCopied ? <Check className="h-4 w-4 text-emerald-600" /> : <Share2 className="h-4 w-4" />}
             </button>
-
-            <button
-              onClick={() => setIsBookingModalOpen(true)}
-              className={`px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-sm cursor-pointer ${theme.buttonClass}`}
-            >
-              {isEn ? 'Book Appointment' : 'حجز موعد'}
+            <button onClick={() => setIsBookingModalOpen(true)} className="hidden h-11 items-center rounded-full bg-[var(--ink)] px-5 text-[14px] font-semibold text-white transition-colors hover:bg-[var(--accent-dark)] sm:flex cursor-pointer">
+              {t('احجز موعد', 'Book a visit')}
             </button>
           </div>
-
         </div>
       </header>
 
-      {/* Hero Section with 3D DNA Vector and Particle Aura */}
+      {/* ===== Hero ===== */}
       {config.hero && (
-        <section className={`relative overflow-hidden border-b border-slate-200/80 pt-10 pb-12 lg:pt-16 lg:pb-20 ${heroStyle.sectionBg}`}>
-          <FloatingMedicalParticles />
-          
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 relative z-10">
-            
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
-              
-              {/* Doctor Details */}
-              <div className="lg:col-span-7 space-y-5 text-right">
-                
-                {/* Accreditation & License Kicker */}
-                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                  <span className="inline-flex items-center gap-1.5 font-semibold text-teal-800">
-                    <MedicalHeroIcon iconId={doctor.heroIcon || 'shield'} className="w-4 h-4 text-teal-700" />
-                    <span>
-                      {isEn 
-                        ? (doctor.heroBadgeTextEn || (doctor.heroBadgeText ? doctor.heroBadgeText : 'Officially Licensed & Certified')) 
-                        : (doctor.heroBadgeText || 'مرخص ومعتمد رسمياً')}
-                    </span>
+        <section className={`mf-grain relative -mt-[72px] overflow-hidden pt-[72px] ${heroT.cls}`} aria-label={t('التعريف بالطبيب', 'Introduction')}>
+          <PlusField className="inset-0" opacity={heroT.dark ? 0.25 : 0.7} />
+          <div aria-hidden="true" className="pointer-events-none absolute -top-40 end-[-10%] h-[620px] w-[620px] rounded-full opacity-60 blur-3xl" style={{ background: 'radial-gradient(closest-side, color-mix(in srgb, var(--accent) 22%, transparent), transparent)' }} />
+
+          <div className="relative z-10 mx-auto grid max-w-[1200px] grid-cols-1 items-center gap-14 px-5 pb-20 pt-12 sm:px-8 lg:grid-cols-12 lg:gap-10 lg:pb-28 lg:pt-20">
+            <div className="lg:col-span-7">
+              <Reveal>
+                <div className={`flex flex-wrap items-center gap-x-3 gap-y-2 text-[14px] ${heroT.dark ? 'text-white/70' : 'text-[var(--muted)]'}`}>
+                  <span className="inline-flex items-center gap-2 font-medium text-[var(--accent-dark)]">
+                    <BadgeCheck className="h-[18px] w-[18px]" />
+                    {pick(doctor.heroBadgeText, doctor.heroBadgeTextEn) || t('طبيب مرخّص', 'Licensed physician')}
                   </span>
-                  <span aria-hidden="true" className="text-slate-300">·</span>
-                  <span>{isEn ? 'License No:' : 'رقم التسجيل:'} {doctor.licenseNumber}</span>
-                  <span aria-hidden="true" className="text-slate-300">·</span>
-                  <span>{isEn ? (doctor.clinic.cityEn || doctor.clinic.city) : doctor.clinic.city}</span>
+                  {(clinic.city || clinic.cityEn) && <><span className="h-1 w-1 rounded-full bg-current opacity-40" /><span>{pick(clinic.city, clinic.cityEn)}</span></>}
                 </div>
+              </Reveal>
 
-                {/* Main Headline */}
-                <div>
-                  <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight text-slate-900 leading-tight">
-                    {isEn ? (doctor.nameEn || doctor.name) : doctor.name}
-                  </h1>
-                  <h2 className="text-base sm:text-lg font-semibold text-slate-700 mt-2">
-                    {isEn ? (doctor.titleEn || doctor.title) : doctor.title}
-                  </h2>
-                </div>
+              <Reveal delay={0.08}>
+                <h1 className={`font-display mt-6 text-[44px] font-semibold leading-[1.15] sm:text-[60px] lg:text-[72px] ${heroT.dark ? 'text-white' : 'text-[var(--ink)]'}`}>
+                  {pick(doctor.name, doctor.nameEn)}
+                </h1>
+              </Reveal>
+              <Reveal delay={0.14}>
+                <p dir="auto" className={`mt-5 max-w-[34ch] text-[19px] leading-[1.7] sm:text-[21px] ${heroT.dark ? 'text-white/80' : 'text-[var(--ink-2)]'}`}>
+                  {pick(doctor.title, doctor.titleEn)}
+                </p>
+              </Reveal>
 
-                {/* Subspecialties unboxed text */}
-                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-slate-600">
-                  <span className="font-semibold text-slate-800">
-                    {isEn ? (doctor.specialtyEn || doctor.specialty) : doctor.specialty}
-                  </span>
-                  {(isEn && doctor.subspecialtiesEn ? doctor.subspecialtiesEn : doctor.subspecialties)?.map((sub, i) => (
-                    <React.Fragment key={i}>
-                      <span aria-hidden="true" className="text-slate-300">/</span>
-                      <span>{sub}</span>
-                    </React.Fragment>
-                  ))}
-                </div>
-
-                {/* Personal Statement / Doctor's Mission */}
-                {(doctor.statement || doctor.statementEn) && (
-                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200/70 text-slate-700 text-xs sm:text-sm leading-relaxed relative">
-                    <p className="italic font-medium">
-                      "{isEn ? (doctor.statementEn || doctor.statement) : doctor.statement}"
-                    </p>
-                  </div>
-                )}
-
-                {/* Primary CTAs */}
-                <div className="flex flex-wrap items-center gap-3 pt-2">
-                  <button
-                    onClick={() => setIsBookingModalOpen(true)}
-                    className={`px-6 py-3 text-sm font-bold rounded-xl transition-all shadow-md flex items-center gap-2 cursor-pointer ${theme.buttonClass}`}
-                  >
-                    <Calendar className="w-4 h-4" />
-                    <span>{isEn ? 'Book Consultation' : 'حجز موعد استشارة'}</span>
-                  </button>
-
-                  {/* Smooth Scroll to Clinic Hours without breaking URL */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const el = document.getElementById('clinic-schedule');
-                      if (el) el.scrollIntoView({ behavior: 'smooth' });
-                    }}
-                    className="px-5 py-3 text-sm font-semibold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200/80 rounded-xl transition-colors flex items-center gap-2 cursor-pointer"
-                  >
-                    <Clock className="w-4 h-4 text-slate-500" />
-                    <span>{isEn ? 'Clinic & Hours' : 'ساعات العمل والعيادة'}</span>
-                  </button>
-                </div>
-
-              </div>
-
-              {/* Doctor Portrait Card with 3D DNA Vector Backdrop and Enlargeable Avatar */}
-              <div className="lg:col-span-5 flex justify-center lg:justify-end relative">
-                
-                {/* 3D DNA Floating Vector in background */}
-                <div className="absolute -top-12 -left-8 w-32 h-64 opacity-40 pointer-events-none hidden sm:block">
-                  <Medical3DDNA themeColor={doctor.themeColor} />
-                </div>
-
-                <div className={`relative w-full ${activeAvatarSize.container} z-10 transition-all duration-300`}>
-                  <div className="relative bg-white rounded-3xl p-4 sm:p-5 border border-slate-200/80 shadow-xl group">
-                    
-                    {/* Enlarge / Zoom Button on Avatar */}
-                    <button
-                      type="button"
-                      onClick={() => setIsDoctorPhotoZoomed(true)}
-                      className="absolute top-6 left-6 z-20 px-2.5 py-1.5 bg-white/95 hover:bg-white text-slate-700 rounded-xl shadow-md backdrop-blur-xs transition-all hover:scale-105 flex items-center gap-1.5 text-xs font-bold border border-slate-200/80 cursor-pointer"
-                      title={isEn ? 'Enlarge Doctor Photo' : 'تكبير صورة الطبيب'}
-                    >
-                      <Maximize2 className="w-3.5 h-3.5 text-teal-800" />
-                      <span>{isEn ? 'Zoom' : 'تكبير الصورة'}</span>
-                    </button>
-
-                    <div 
-                      onClick={() => setIsDoctorPhotoZoomed(true)} 
-                      className="cursor-pointer"
-                      title={isEn ? 'Click to enlarge doctor photo' : 'انقر لتكبير صورة الطبيب بالحجم الكامل'}
-                    >
-                      <DoctorAvatar
-                        name={doctor.name}
-                        avatarUrl={doctor.avatarUrl}
-                        themeColor={doctor.themeColor}
-                        size={activeAvatarSize.avatarProp}
-                        className={`w-full ${activeAvatarSize.height} rounded-2xl transition-transform duration-300 group-hover:scale-[1.01]`}
-                      />
-                    </div>
-
-                    {/* Quick Badge Under Avatar */}
-                    <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                      <div className="flex items-center gap-1.5 text-amber-600 font-bold">
-                        <Star className="w-4 h-4 fill-amber-400 text-amber-400" />
-                        <span className="tabular-nums">{doctor.rating.toFixed(2)}</span>
-                        <span className="text-slate-600 font-normal">
-                          ({doctor.reviewCount} {isEn ? 'verified reviews' : 'تقييم موثق'})
-                        </span>
-                      </div>
-                      <span className="text-slate-600 font-medium">
-                        {isEn ? `${doctor.experienceYears} Years Experience` : `خبرة ${doctor.experienceYears} عاماً`}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-
-            {/* Full-width KPI Proof strip below Hero */}
-            <div className="mt-12 pt-8 border-t border-slate-200/80 grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
-              <div className="text-right">
-                <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tabular-nums">
-                  {doctor.experienceYears}+
-                </span>
-                <p className="text-xs text-slate-500 mt-0.5">{isEn ? 'Years Clinical Experience' : 'سنوات خبرة سريرية متخصصة'}</p>
-              </div>
-
-              <div className="text-right">
-                <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tabular-nums">
-                  %{Math.round(doctor.rating * 20)}
-                </span>
-                <p className="text-xs text-slate-500 mt-0.5">{isEn ? 'Patient Satisfaction Rate' : 'نسبة رضا المرضى والمراجعين'}</p>
-              </div>
-
-              <div className="text-right">
-                <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tabular-nums">
-                  {doctor.qualifications?.length || 3}
-                </span>
-                <p className="text-xs text-slate-500 mt-0.5">{isEn ? 'Board Certifications' : 'بورد وزمالات طبية دولية'}</p>
-              </div>
-
-              <div className="text-right">
-                <span className="text-2xl sm:text-3xl font-extrabold text-slate-900 tabular-nums">
-                  {doctor.services?.length || 4}
-                </span>
-                <p className="text-xs text-slate-500 mt-0.5">{isEn ? 'Specialized Procedures' : 'خدمات وإجراءات تخصصية'}</p>
-              </div>
-            </div>
-
-          </div>
-        </section>
-      )}
-
-      {/* About & Biography */}
-      {config.about && (
-        <section className={`py-14 border-b border-slate-200/80 ${aboutStyle.sectionBg}`}>
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-              
-              <div className="lg:col-span-8 space-y-4">
-                <span className="text-xs font-bold uppercase tracking-wider text-teal-800">
-                  {isEn ? 'About the Doctor' : 'نبذة عن الطبيب'}
-                </span>
-                <h3 className="text-2xl sm:text-3xl font-bold text-slate-900">
-                  {isEn ? `The Medical Journey of ${doctor.nameEn || doctor.name}` : `المسيرة الطبية لـ ${doctor.name}`}
-                </h3>
-                <div className="text-sm text-slate-600 leading-relaxed whitespace-pre-line">
-                  {isEn ? (doctor.bioEn || doctor.bio) : doctor.bio}
-                </div>
-              </div>
-
-              {/* 3D Heart Pulse / Card Info */}
-              <div className="lg:col-span-4 bg-slate-50/80 rounded-2xl border border-slate-200/80 p-5 space-y-4">
-                <Medical3DHeartPulse themeColor={doctor.themeColor} className="h-28" />
-                <div className="space-y-2 text-xs">
-                  <div className="flex justify-between text-slate-600">
-                    <span>{isEn ? 'Specialty' : 'التخصص الدقيق'}:</span>
-                    <span className="font-bold text-slate-900">{isEn ? (doctor.specialtyEn || doctor.specialty) : doctor.specialty}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-600">
-                    <span>{isEn ? 'License' : 'ترخيص الهيئة'}:</span>
-                    <span className="font-mono text-slate-900">{doctor.licenseNumber}</span>
-                  </div>
-                  <div className="flex justify-between text-slate-600">
-                    <span>{isEn ? 'Clinic' : 'المركز الطبي'}:</span>
-                    <span className="font-bold text-slate-900">{isEn ? (doctor.clinic.nameEn || doctor.clinic.name) : doctor.clinic.name}</span>
-                  </div>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Qualifications & Experience */}
-      {(config.qualifications || config.experience) && (
-        <section className={`py-14 border-b border-slate-200/80 ${qualificationsStyle.sectionBg}`}>
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              
-              {/* Qualifications */}
-              {config.qualifications && (
-                <div className="space-y-5">
-                  <div className="flex items-center gap-2 text-teal-800">
-                    <Award className="w-5 h-5" />
-                    <h3 className="text-lg font-bold text-slate-900">
-                      {isEn ? 'Qualifications & Fellowships' : 'المؤهلات والزمالات الطبية'}
-                    </h3>
-                  </div>
-
-                  <div className="space-y-3">
-                    {doctor.qualifications?.map((q) => (
-                      <div key={q.id} className="p-4 bg-white rounded-xl border border-slate-200/80 space-y-1">
-                        <div className="flex items-center justify-between text-xs">
-                          <h4 className="font-bold text-slate-900 text-sm">
-                            {isEn ? (q.degreeEn || q.degree) : q.degree}
-                          </h4>
-                          <span className="font-mono text-slate-500">{q.year}</span>
-                        </div>
-                        <p className="text-xs text-slate-600">
-                          {isEn ? (q.institutionEn || q.institution) : q.institution}
-                        </p>
-                      </div>
+              {subspecialties.length > 0 && (
+                <Reveal delay={0.2}>
+                  <ul className="mt-7 flex flex-wrap gap-2" aria-label={t('التخصصات الدقيقة', 'Subspecialties')}>
+                    {subspecialties.map((s, i) => (
+                      <li key={i} dir="auto" className={`rounded-full border px-4 py-1.5 text-[13.5px] ${heroT.dark ? 'border-white/20 text-white/80' : 'border-[var(--line-strong)] text-[var(--ink-2)]'}`}>{s}</li>
                     ))}
-                  </div>
-                </div>
+                  </ul>
+                </Reveal>
               )}
 
-              {/* Experience */}
-              {config.experience && (
-                <div className="space-y-5">
-                  <div className="flex items-center gap-2 text-teal-800">
-                    <Building2 className="w-5 h-5" />
-                    <h3 className="text-lg font-bold text-slate-900">
-                      {isEn ? 'Professional Experience' : 'الخبرات والمناصب السريرية'}
-                    </h3>
-                  </div>
+              <Reveal delay={0.26}>
+                <div className="mt-10 flex flex-wrap items-center gap-3">
+                  <button onClick={() => setIsBookingModalOpen(true)} className={btnPrimary}>
+                    {t('احجز استشارتك', 'Book a consultation')}
+                    <Arrow className="h-4 w-4" />
+                  </button>
+                  {waHref ? (
+                    <a href={waHref} target="_blank" rel="noreferrer" className={`${btnGhost} ${heroT.dark ? 'border-white/30 text-white hover:bg-white/10 hover:border-white' : ''}`}>
+                      <ChatGlyph className="h-[18px] w-[18px]" />
+                      {t('تواصل على واتساب', 'Message on WhatsApp')}
+                    </a>
+                  ) : (
+                    <button onClick={() => scrollTo('clinic-schedule')} className={btnGhost}>
+                      <Clock className="h-4 w-4" />{t('المواعيد والعنوان', 'Hours & location')}
+                    </button>
+                  )}
+                </div>
+              </Reveal>
 
-                  <div className="space-y-3">
-                    {doctor.experience?.map((exp) => (
-                      <div key={exp.id} className="p-4 bg-white rounded-xl border border-slate-200/80 space-y-1">
-                        <div className="flex items-center justify-between text-xs">
-                          <h4 className="font-bold text-slate-900 text-sm">
-                            {isEn ? (exp.roleEn || exp.role) : exp.role}
-                          </h4>
-                          <span className="font-mono text-slate-500">
-                            {isEn ? (exp.periodEn || exp.period) : exp.period}
-                          </span>
-                        </div>
-                        <p className="text-xs text-slate-600">
-                          {isEn ? (exp.hospitalEn || exp.hospital) : exp.hospital}
-                        </p>
-                        {exp.description && (
-                          <p className="text-xs text-slate-500 mt-1">
-                            {isEn ? (exp.descriptionEn || exp.description) : exp.description}
+              {/* facts: only what the doctor entered */}
+              <Reveal delay={0.32}>
+                <dl className={`mt-12 grid max-w-xl grid-cols-2 gap-6 border-t pt-7 sm:grid-cols-3 ${heroT.dark ? 'border-white/15' : 'border-[var(--line)]'}`}>
+                  {doctor.experienceYears > 0 && (
+                    <div>
+                      <dt className={`text-[13px] ${heroT.dark ? 'text-white/60' : 'text-[var(--muted)]'}`}>{t('سنوات الخبرة', 'Years of practice')}</dt>
+                      <dd className="font-display mt-1 text-[30px] font-semibold tabular-nums">{doctor.experienceYears}<span className="text-[var(--accent)]">+</span></dd>
+                    </div>
+                  )}
+                  {hasReviews && (
+                    <div>
+                      <dt className={`text-[13px] ${heroT.dark ? 'text-white/60' : 'text-[var(--muted)]'}`}>{t(`من ${doctor.reviewCount} تقييم`, `From ${doctor.reviewCount} reviews`)}</dt>
+                      <dd className="font-display mt-1 flex items-center gap-1.5 text-[30px] font-semibold tabular-nums">
+                        {doctor.rating.toFixed(1)}<Star className="h-5 w-5 fill-[var(--accent)] text-[var(--accent)]" aria-hidden="true" />
+                      </dd>
+                    </div>
+                  )}
+                  {doctor.licenseNumber && (
+                    <div className="col-span-2 sm:col-span-1">
+                      <dt className={`text-[13px] ${heroT.dark ? 'text-white/60' : 'text-[var(--muted)]'}`}>{t('رقم الترخيص', 'License no.')}</dt>
+                      <dd className="mt-2 font-mono text-[15px] tracking-tight" dir="ltr">{doctor.licenseNumber}</dd>
+                    </div>
+                  )}
+                </dl>
+              </Reveal>
+            </div>
+
+            <div className="lg:col-span-5">
+              <Reveal delay={0.1} className="relative mx-auto max-w-[420px] lg:ms-auto lg:me-0">
+                <ArchPortrait name={pick(doctor.name, doctor.nameEn)} avatarUrl={doctor.avatarUrl} isEn={isEn} onOpen={() => setIsDoctorPhotoZoomed(true)} heightClass={portraitH} />
+                {/* floating clinic note */}
+                {(clinic.workingHours?.length > 0 || clinic.name) && (
+                  <div className="absolute -bottom-8 start-[-12px] z-10 w-[min(290px,80%)] rounded-2xl border border-[var(--line)] bg-white/95 p-4 text-[var(--ink)] shadow-[0_24px_60px_-28px_rgba(16,24,40,.45)] backdrop-blur sm:start-[-40px]">
+                    <div className="flex items-start gap-3">
+                      <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--accent-soft)] text-[var(--accent-dark)]"><MapPin className="h-4 w-4" /></span>
+                      <div className="min-w-0">
+                        <p className="truncate text-[14px] font-semibold">{pick(clinic.name, clinic.nameEn)}</p>
+                        {clinic.workingHours?.[0] && (
+                          <p className="mt-0.5 text-[13px] text-[var(--muted)]">
+                            {pick(clinic.workingHours[0].days, clinic.workingHours[0].daysEn)} · <span className="tabular-nums">{pick(clinic.workingHours[0].hours, clinic.workingHours[0].hoursEn)}</span>
                           </p>
                         )}
                       </div>
-                    ))}
+                    </div>
                   </div>
-                </div>
-              )}
-
+                )}
+              </Reveal>
             </div>
           </div>
         </section>
       )}
 
-      {/* Medical Services */}
-      {config.services && (
-        <section className={`py-14 border-b border-slate-200/80 ${servicesStyle.sectionBg}`}>
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-6">
-            <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-teal-800">
-                {isEn ? 'Clinical Services' : 'الخدمات الطبية'}
-              </span>
-              <h3 className="text-2xl font-bold text-slate-900 mt-1">
-                {isEn ? 'Procedures & Specialized Care' : 'الفحوصات والإجراءات التخصصية'}
-              </h3>
-            </div>
+      {/* ===== Statement (pull quote) ===== */}
+      {(doctor.statement || doctor.statementEn) && (
+        <section className="relative bg-[var(--night)] text-white" aria-label={t('رسالة الطبيب', "Doctor's statement")}>
+          <div className="mx-auto max-w-[1000px] px-5 py-20 text-center sm:px-8 sm:py-24">
+            <Reveal>
+              <QuoteMark className="mx-auto h-10 w-12 text-[var(--accent)]" />
+              <blockquote className="font-display mt-8 text-[24px] font-light leading-[1.75] sm:text-[32px]">
+                {pick(doctor.statement, doctor.statementEn)}
+              </blockquote>
+              <p className="mt-8 text-[14px] text-white/60">— {pick(doctor.name, doctor.nameEn)}</p>
+            </Reveal>
+          </div>
+          <PulseLine className="absolute inset-x-0 bottom-0 h-10 w-full opacity-60" />
+        </section>
+      )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {doctor.services?.map((svc) => (
-                <div 
-                  key={svc.id}
-                  className="p-5 bg-white rounded-2xl border border-slate-200/80 hover:border-teal-700/50 hover:shadow-md transition-all flex flex-col justify-between"
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-50 text-teal-800">
-                        {isEn ? (svc.categoryEn || svc.category || 'Clinical') : (svc.category || 'عام')}
+      {/* ===== About ===== */}
+      {config.about && (
+        <section id="about" className={`scroll-mt-20 ${aboutT.cls}`}>
+          <div className="mx-auto max-w-[1200px] px-5 py-24 sm:px-8 sm:py-32">
+            <SectionHead index={nextIndex()} isEn={isEn} dark={aboutT.dark} kicker={t('نبذة', 'About')} title={isEn ? `Meet ${doctor.nameEn || doctor.name}` : `تعرّف على ${doctor.name}`} />
+            <div className="mt-14 grid grid-cols-1 gap-14 lg:grid-cols-12">
+              <Reveal className="lg:col-span-7">
+                <p className={`whitespace-pre-line text-[18px] leading-[2] sm:text-[19px] ${aboutT.dark ? 'text-white/80' : 'text-[var(--ink-2)]'}`}>{pick(doctor.bio, doctor.bioEn)}</p>
+              </Reveal>
+              <Reveal delay={0.1} className="lg:col-span-5">
+                <dl className={`divide-y rounded-[24px] border p-2 ${aboutT.dark ? 'divide-white/10 border-white/15' : 'divide-[var(--line)] border-[var(--line)] bg-white/70'}`}>
+                  {[
+                    { k: t('التخصص', 'Specialty'), v: pick(doctor.specialty, doctor.specialtyEn) },
+                    { k: t('العيادة', 'Clinic'), v: pick(clinic.name, clinic.nameEn) },
+                    { k: t('المدينة', 'City'), v: pick(clinic.city, clinic.cityEn) },
+                    { k: t('سنوات الخبرة', 'Experience'), v: doctor.experienceYears ? (isEn ? `${doctor.experienceYears} years` : `${doctor.experienceYears} سنة`) : '' },
+                  ].filter(r => r.v).map((r, i) => (
+                    <div key={i} className="flex items-baseline justify-between gap-6 px-5 py-4">
+                      <dt className={`text-[14px] ${aboutT.dark ? 'text-white/55' : 'text-[var(--muted)]'}`}>{r.k}</dt>
+                      <dd className="text-end text-[15px] font-semibold">{r.v}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </Reveal>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ===== Credentials ===== */}
+      {((config.qualifications && qualifications.length > 0) || (config.experience && experience.length > 0)) && (
+        <section className={qualT.cls}>
+          <div className="mx-auto max-w-[1200px] px-5 py-24 sm:px-8 sm:py-32">
+            <SectionHead index={nextIndex()} isEn={isEn} dark={qualT.dark} kicker={t('المؤهلات والخبرة', 'Credentials')} title={t('تعليم وخبرة تقدر تثق فيها', 'Training and experience you can trust')} />
+            <div className="mt-16 grid grid-cols-1 gap-16 md:grid-cols-2">
+              {config.qualifications && qualifications.length > 0 && (
+                <div>
+                  <h3 className={`text-[15px] font-semibold ${qualT.dark ? 'text-white/60' : 'text-[var(--muted)]'}`}>{t('المؤهلات والزمالات', 'Qualifications & fellowships')}</h3>
+                  <ol className={`relative mt-8 space-y-10 border-s ps-8 ${qualT.dark ? 'border-white/15' : 'border-[var(--line-strong)]'}`}>
+                    {qualifications.map((q, i) => (
+                      <Reveal as="li" key={q.id} delay={i * 0.06} className="relative">
+                        <span aria-hidden="true" className="absolute -start-[37px] top-2 h-[9px] w-[9px] rounded-full border-2 border-[var(--accent)] bg-[var(--paper)]" />
+                        <p className="font-mono text-[13px] tabular-nums text-[var(--accent-dark)]">{q.year}</p>
+                        <h4 className="mt-1.5 text-[17px] font-semibold leading-[1.6]">{pick(q.degree, q.degreeEn)}</h4>
+                        <p className={`mt-1 text-[15px] ${qualT.dark ? 'text-white/60' : 'text-[var(--muted)]'}`}>{pick(q.institution, q.institutionEn)}</p>
+                      </Reveal>
+                    ))}
+                  </ol>
+                </div>
+              )}
+              {config.experience && experience.length > 0 && (
+                <div>
+                  <h3 className={`text-[15px] font-semibold ${qualT.dark ? 'text-white/60' : 'text-[var(--muted)]'}`}>{t('الخبرة المهنية', 'Clinical experience')}</h3>
+                  <ol className={`relative mt-8 space-y-10 border-s ps-8 ${qualT.dark ? 'border-white/15' : 'border-[var(--line-strong)]'}`}>
+                    {experience.map((e, i) => (
+                      <Reveal as="li" key={e.id} delay={i * 0.06} className="relative">
+                        <span aria-hidden="true" className="absolute -start-[37px] top-2 h-[9px] w-[9px] rounded-full bg-[var(--accent)]" />
+                        <p className="font-mono text-[13px] tabular-nums text-[var(--accent-dark)]">{pick(e.period, e.periodEn)}</p>
+                        <h4 className="mt-1.5 text-[17px] font-semibold leading-[1.6]">{pick(e.role, e.roleEn)}</h4>
+                        <p className={`mt-1 text-[15px] ${qualT.dark ? 'text-white/60' : 'text-[var(--muted)]'}`}>{pick(e.hospital, e.hospitalEn)}</p>
+                        {(e.description || e.descriptionEn) && <p className={`mt-3 text-[15px] leading-[1.85] ${qualT.dark ? 'text-white/70' : 'text-[var(--ink-2)]'}`}>{pick(e.description, e.descriptionEn)}</p>}
+                      </Reveal>
+                    ))}
+                  </ol>
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ===== Services (editorial index) ===== */}
+      {config.services && services.length > 0 && (
+        <section id="services" className={`scroll-mt-20 ${servT.cls}`}>
+          <div className="mx-auto max-w-[1200px] px-5 py-24 sm:px-8 sm:py-32">
+            <SectionHead
+              index={nextIndex()} isEn={isEn} dark={servT.dark}
+              kicker={t('الخدمات', 'Services')}
+              title={t('الكشف والإجراءات', 'Consultations & procedures')}
+              aside={<Reveal><button onClick={() => setIsBookingModalOpen(true)} className={servT.dark ? `${btnGhost} border-white/30 text-white hover:bg-white/10` : btnGhost}>{t('احجز خدمة', 'Book a service')}<Arrow className="h-4 w-4" /></button></Reveal>}
+            />
+            <ul className={`mt-14 border-t ${servT.dark ? 'border-white/15' : 'border-[var(--line-strong)]'}`}>
+              {services.map((svc, i) => (
+                <Reveal as="li" key={svc.id} delay={Math.min(i, 6) * 0.04}>
+                  <button
+                    type="button"
+                    onClick={() => setIsBookingModalOpen(true)}
+                    className={`group grid w-full grid-cols-[auto_1fr] items-start gap-x-6 gap-y-3 border-b py-8 text-start transition-colors duration-300 sm:grid-cols-[64px_1fr_auto] sm:items-center cursor-pointer ${servT.dark ? 'border-white/15 hover:bg-white/[.03]' : 'border-[var(--line)] hover:bg-white/60'}`}
+                  >
+                    <span className="font-display pt-1 text-[15px] tabular-nums text-[var(--accent)] sm:pt-0 sm:ps-2">{fmtIndex(i + 1, isEn)}</span>
+                    <span className="min-w-0">
+                      <span className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+                        <span className="font-display text-[21px] font-semibold leading-[1.5] sm:text-[24px]">{pick(svc.name, svc.nameEn)}</span>
+                        {(svc.category || svc.categoryEn) && <span className={`text-[13px] ${servT.dark ? 'text-white/50' : 'text-[var(--muted)]'}`}>{pick(svc.category, svc.categoryEn)}</span>}
                       </span>
-                      {svc.price && (
-                        <span className="text-xs font-bold text-slate-900">
-                          {svc.price} {isEn ? (svc.currency || 'EGP') : (svc.currency || 'جنيه')}
-                        </span>
+                      <span className={`mt-2 block max-w-[62ch] text-[15.5px] leading-[1.85] ${servT.dark ? 'text-white/70' : 'text-[var(--muted)]'}`}>{pick(svc.description, svc.descriptionEn)}</span>
+                    </span>
+                    <span className="col-start-2 flex items-center gap-5 text-[14px] sm:col-start-3 sm:pe-2">
+                      {svc.durationMinutes ? <span className={`tabular-nums ${servT.dark ? 'text-white/60' : 'text-[var(--muted)]'}`}>{svc.durationMinutes} {t('دقيقة', 'min')}</span> : null}
+                      {svc.price ? <span className="font-semibold tabular-nums">{svc.price.toLocaleString('en-US')} {isEn ? (svc.currency && /[a-z]/i.test(svc.currency) ? svc.currency : 'EGP') : (svc.currency || 'جنيه')}</span> : null}
+                      <span className={`flex h-11 w-11 items-center justify-center rounded-full border transition-all duration-300 group-hover:border-[var(--accent)] group-hover:bg-[var(--accent)] group-hover:text-white ${servT.dark ? 'border-white/25' : 'border-[var(--line-strong)]'}`}>
+                        <Arrow className="h-4 w-4" />
+                      </span>
+                    </span>
+                  </button>
+                </Reveal>
+              ))}
+            </ul>
+          </div>
+        </section>
+      )}
+
+      {/* ===== Clinic & hours ===== */}
+      {config.clinic && (
+        <section id="clinic-schedule" className={`scroll-mt-20 ${clinicT.cls}`}>
+          <div className={`mx-auto max-w-[1200px] px-5 pb-24 sm:px-8 sm:pb-32 ${config.services && services.length > 0 && clinicT.cls === servT.cls ? 'pt-4 sm:pt-8' : 'pt-24 sm:pt-32'}`}>
+            <SectionHead index={nextIndex()} isEn={isEn} dark={clinicT.dark} kicker={t('العيادة', 'The clinic')} title={pick(clinic.name, clinic.nameEn) || t('العيادة', 'The clinic')} />
+            <Reveal className="mt-14">
+              <div className="relative overflow-hidden rounded-[32px] bg-[var(--night)] text-white">
+                <PlusField className="inset-0" opacity={0.18} />
+                <div className="relative grid grid-cols-1 lg:grid-cols-12">
+                  <div className="p-8 sm:p-12 lg:col-span-5">
+                    <p className="text-[14px] text-white/55">{t('العنوان', 'Address')}</p>
+                    <p className="mt-3 text-[19px] leading-[1.8]">
+                      {pick(clinic.address, clinic.addressEn)}{(clinic.address || clinic.addressEn) && (clinic.city || clinic.cityEn) ? '، ' : ''}{pick(clinic.city, clinic.cityEn)}
+                    </p>
+                    <div className="mt-8 flex flex-wrap gap-3">
+                      {telNumber && (
+                        <a href={`tel:${telNumber}`} className="inline-flex h-12 items-center gap-2 rounded-full bg-white px-5 text-[15px] font-semibold text-[var(--ink)] transition-colors hover:bg-[var(--accent-soft)]">
+                          <Phone className="h-4 w-4" /><span dir="ltr" className="tabular-nums">{clinic.phone}</span>
+                        </a>
+                      )}
+                      {waHref && (
+                        <a href={waHref} target="_blank" rel="noreferrer" className="inline-flex h-12 items-center gap-2 rounded-full border border-white/25 px-5 text-[15px] font-semibold transition-colors hover:bg-white/10">
+                          <ChatGlyph className="h-[18px] w-[18px]" />{t('واتساب', 'WhatsApp')}
+                        </a>
+                      )}
+                      {clinic.googleMapsUrl && (
+                        <a href={clinic.googleMapsUrl} target="_blank" rel="noreferrer" className="inline-flex h-12 items-center gap-2 rounded-full border border-white/25 px-5 text-[15px] font-semibold transition-colors hover:bg-white/10">
+                          <Navigation className="h-4 w-4" />{t('الاتجاهات', 'Directions')}
+                        </a>
                       )}
                     </div>
-                    <h4 className="font-bold text-slate-900 text-sm">
-                      {isEn ? (svc.nameEn || svc.name) : svc.name}
-                    </h4>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      {isEn ? (svc.descriptionEn || svc.description) : svc.description}
-                    </p>
+                    {clinic.emergencyPhone && (
+                      <p className="mt-8 text-[14px] text-white/60">{t('للطوارئ', 'Emergencies')}: <a href={`tel:${clinic.emergencyPhone.replace(/[^0-9+]/g, '')}`} dir="ltr" className="mf-link tabular-nums text-white">{clinic.emergencyPhone}</a></p>
+                    )}
                   </div>
-
-                  <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                    <span className="text-slate-400">
-                      {svc.durationMinutes ? `${svc.durationMinutes} ${isEn ? 'mins' : 'دقيقة'}` : ''}
-                    </span>
-                    <button
-                      onClick={() => setIsBookingModalOpen(true)}
-                      className="text-teal-800 hover:text-teal-900 font-bold"
-                    >
-                      {isEn ? 'Book Now →' : 'طلب حجز ←'}
+                  <div className="border-t border-white/10 p-8 sm:p-12 lg:col-span-7 lg:border-s lg:border-t-0">
+                    <p className="flex items-center gap-2 text-[14px] text-white/55"><Clock className="h-4 w-4" />{t('مواعيد العيادة', 'Opening hours')}</p>
+                    <ul className="mt-4 divide-y divide-white/10">
+                      {clinic.workingHours?.map((wh, idx) => (
+                        <li key={idx} className="flex items-center justify-between gap-6 py-4 text-[16px]">
+                          <span className="font-medium">{pick(wh.days, wh.daysEn)}</span>
+                          <span className="tabular-nums text-white/75">{pick(wh.hours, wh.hoursEn)}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <button onClick={() => setIsBookingModalOpen(true)} className="mt-8 inline-flex h-12 items-center gap-2 rounded-full bg-[var(--accent)] px-6 text-[15px] font-semibold text-white transition-transform duration-300 hover:-translate-y-0.5 cursor-pointer">
+                      {t('احجز موعدك', 'Book your visit')}<Arrow className="h-4 w-4" />
                     </button>
                   </div>
                 </div>
-              ))}
-            </div>
+              </div>
+            </Reveal>
           </div>
         </section>
       )}
 
-      {/* Clinic & Schedule */}
-      {config.clinic && (
-        <section id="clinic-schedule" className={`py-14 border-b border-slate-200/80 ${clinicStyle.sectionBg}`}>
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-              
-              {/* Clinic Info */}
-              <div className="lg:col-span-5 space-y-4">
-                <span className="text-xs font-bold uppercase tracking-wider text-teal-800">
-                  {isEn ? 'Clinic Location' : 'موقع العيادة'}
-                </span>
-                <h3 className="text-2xl font-bold text-slate-900">
-                  {isEn ? (doctor.clinic.nameEn || doctor.clinic.name) : doctor.clinic.name}
-                </h3>
-                <p className="text-xs text-slate-600 leading-relaxed flex items-start gap-2">
-                  <MapPin className="w-4 h-4 text-teal-800 shrink-0 mt-0.5" />
-                  <span>
-                    {isEn ? (doctor.clinic.addressEn || doctor.clinic.address) : doctor.clinic.address}، {isEn ? (doctor.clinic.cityEn || doctor.clinic.city) : doctor.clinic.city}
-                  </span>
-                </p>
-
-                <div className="pt-2 flex flex-wrap gap-2 text-xs">
-                  <a
-                    href={`tel:${doctor.clinic.phone.replace(/[^0-9+]/g, '')}`}
-                    className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl font-semibold flex items-center gap-1.5 transition-colors"
-                  >
-                    <Phone className="w-3.5 h-3.5 text-teal-700" />
-                    <span>{doctor.clinic.phone}</span>
-                  </a>
-
-                  <a
-                    href={`https://wa.me/${doctor.clinic.whatsapp.replace(/[^0-9]/g, '')}`}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="px-4 py-2 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 rounded-xl font-semibold flex items-center gap-1.5 transition-colors"
-                  >
-                    <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>واتساب</span>
-                  </a>
-                </div>
-              </div>
-
-              {/* Working Hours Table */}
-              <div className="lg:col-span-7 bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-xs">
-                <h4 className="font-bold text-slate-900 text-sm mb-4 flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-teal-800" />
-                  <span>{isEn ? 'Working Hours & Schedule' : 'جدول مواعيد العيادة والاستشارات'}</span>
-                </h4>
-
-                <div className="divide-y divide-slate-100 text-xs sm:text-sm">
-                  {doctor.clinic.workingHours?.map((wh, idx) => (
-                    <div key={idx} className="py-2.5 flex items-center justify-between">
-                      <span className="font-semibold text-slate-800">
-                        {isEn ? (wh.daysEn || wh.days) : wh.days}
-                      </span>
-                      <span className="font-mono text-slate-600">
-                        {isEn ? (wh.hoursEn || wh.hours) : wh.hours}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-                  <span>{isEn ? '* Advance booking is recommended.' : '* يُفضل الحجز المسبق لتجنب أوقات الانتظار.'}</span>
-                  <button
-                    onClick={() => setIsBookingModalOpen(true)}
-                    className="text-teal-800 hover:text-teal-900 font-bold"
-                  >
-                    {isEn ? 'Book Appointment →' : 'حجز موعد الآن ←'}
-                  </button>
-                </div>
-              </div>
-
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Photo Gallery Section */}
+      {/* ===== Gallery ===== */}
       {config.gallery !== false && photos.length > 0 && (
-        <section id="clinic-gallery" className={`py-14 border-b border-slate-200/80 ${galleryStyle.sectionBg}`}>
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-6">
-            
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-teal-800">
-                  {isEn ? 'Visual Tour' : 'جولة مصورة بالعيادة'}
-                </span>
-                <h3 className="text-2xl font-bold text-slate-900 mt-1">
-                  {isEn ? 'Clinic & Case Gallery' : 'معرض صور العيادة والتجهيزات الطبية'}
-                </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  {isEn ? 'Explore our modern facilities, medical technology, and clinic ambiance' : 'شاهد غرف الكشف، أحدث الأجهزة والتقنيات الطبية المعتمدة، وشهادات التقدير'}
-                </p>
-              </div>
-
-              {/* Gallery Filter Tabs */}
-              {availableCategories.length > 1 && (
-                <div className="flex flex-wrap gap-1.5 p-1 bg-white/90 rounded-xl border border-slate-200/80 shadow-2xs">
+        <section id="clinic-gallery" className={galleryT.cls}>
+          <div className="mx-auto max-w-[1200px] px-5 py-24 sm:px-8 sm:py-32">
+            <SectionHead
+              index={nextIndex()} isEn={isEn} dark={galleryT.dark}
+              kicker={t('جولة مصوّرة', 'A look inside')}
+              title={t('من داخل العيادة', 'Inside the clinic')}
+              aside={availableCategories.length > 1 ? (
+                <div role="tablist" aria-label={t('تصنيف الصور', 'Filter photos')} className="flex flex-wrap gap-2">
                   {availableCategories.map(cat => (
-                    <button
-                      key={cat.id}
-                      onClick={() => setGalleryFilter(cat.id)}
-                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
-                        galleryFilter === cat.id
-                          ? 'bg-teal-800 text-white shadow-xs'
-                          : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
-                      }`}
-                    >
+                    <button key={cat.id} role="tab" aria-selected={galleryFilter === cat.id} onClick={() => setGalleryFilter(cat.id)}
+                      className={`h-10 rounded-full px-4 text-[14px] transition-colors cursor-pointer ${galleryFilter === cat.id ? 'bg-[var(--ink)] text-white' : 'border border-[var(--line-strong)] text-[var(--ink-2)] hover:border-[var(--ink)]'}`}>
                       {isEn ? cat.nameEn : cat.nameAr}
                     </button>
                   ))}
                 </div>
-              )}
-            </div>
-
-            {/* Photos Grid */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {filteredPhotos.map((photo, pIdx) => (
-                <div
-                  key={photo.id || pIdx}
-                  onClick={() => setSelectedGalleryPhoto(photo)}
-                  className="group relative bg-white rounded-2xl overflow-hidden border border-slate-200/80 hover:border-teal-700/60 shadow-xs hover:shadow-lg transition-all duration-300 cursor-pointer flex flex-col"
-                >
-                  <div className="relative h-56 sm:h-64 overflow-hidden bg-slate-100">
-                    <img
-                      src={photo.url}
-                      alt={photo.title || 'صورة العيادة'}
-                      className="w-full h-full object-cover object-center group-hover:scale-105 transition-transform duration-500"
-                      loading="lazy"
-                    />
-                    <div className="absolute inset-0 bg-gradient-to-t from-slate-950/70 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end justify-between p-4 text-white">
-                      <span className="text-xs font-medium flex items-center gap-1.5">
-                        <ZoomIn className="w-4 h-4" />
-                        <span>{isEn ? 'View Full Size' : 'عرض الصورة بحجم كامل'}</span>
-                      </span>
-                      <Maximize2 className="w-4 h-4 text-teal-300" />
-                    </div>
-
-                    {photo.category && (
-                      <span className="absolute top-3 right-3 px-2.5 py-1 rounded-lg text-[10px] font-bold bg-white/95 text-slate-800 backdrop-blur-xs shadow-xs border border-white/60">
-                        {getCategoryLabel(photo.category, isEn)}
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="p-4 space-y-1 bg-white">
-                    <h4 className="font-bold text-slate-900 text-sm group-hover:text-teal-900 transition-colors">
-                      {isEn ? (photo.titleEn || photo.title) : photo.title}
-                    </h4>
-                    {(photo.caption || photo.captionEn) && (
-                      <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
-                        {isEn ? (photo.captionEn || photo.caption) : photo.caption}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-          </div>
-        </section>
-      )}
-
-      {/* Patient Testimonials & Interactive Review Submission */}
-      {config.testimonials && (
-        <section className={`py-14 border-b border-slate-200/80 ${testimonialsStyle.sectionBg}`}>
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-6">
-            
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div>
-                <span className="text-xs font-bold uppercase tracking-wider text-teal-800">
-                  {isEn ? 'Verified Experiences' : 'تجارب حقيقية'}
-                </span>
-                <h3 className="text-2xl font-bold text-slate-900 mt-1">
-                  {isEn ? 'Patient Reviews & Ratings' : 'آراء وتقييمات المرضى والمراجعين'}
-                </h3>
-              </div>
-
-              {/* Add Review Button */}
-              <button
-                onClick={() => setIsAddReviewModalOpen(true)}
-                className={`px-4 py-2 text-xs font-bold rounded-xl transition-all shadow-sm flex items-center gap-1.5 ${theme.buttonClass}`}
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span>{isEn ? 'Add Your Review' : 'أضف تقييمك كـ مريض'}</span>
-              </button>
-            </div>
-
-            {/* Testimonials Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {testimonials.map((test) => (
-                <div key={test.id} className="p-5 bg-white rounded-2xl border border-slate-200/80 space-y-3 shadow-xs">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-1">
-                      {[...Array(Math.max(1, Math.min(5, Math.round(Number(test.rating) || 5))))].map((_, i) => (
-                        <Star key={i} className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                      ))}
-                    </div>
-                    <span className="text-[11px] font-mono text-slate-400">{test.date}</span>
-                  </div>
-                  <p className="text-xs sm:text-sm text-slate-700 leading-relaxed italic">
-                    "{isEn ? (test.commentEn || test.comment) : test.comment}"
-                  </p>
-                  <div className="flex items-center justify-between text-xs text-slate-500 pt-2 border-t border-slate-100">
-                    <span className="font-semibold text-slate-900">
-                      {isEn ? (test.patientNameEn || test.patientName) : test.patientName}
-                    </span>
-                    {test.treatmentType && (
-                      <span className="text-teal-800">
-                        {isEn ? (test.treatmentTypeEn || test.treatmentType) : test.treatmentType}
-                      </span>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-          </div>
-        </section>
-      )}
-
-      {/* Health Articles */}
-      {config.articles && doctor.articles?.length > 0 && (
-        <section className={`py-14 border-b border-slate-200/80 ${articlesStyle.sectionBg}`}>
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 space-y-6">
-            <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-teal-800">
-                {isEn ? 'Health Education' : 'التثقيف الطبي'}
-              </span>
-              <h3 className="text-2xl font-bold text-slate-900 mt-1">
-                {isEn ? 'Medical Insights & Articles' : 'مقالات ونصائح صحية بقلم الطبيب'}
-              </h3>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {articles.map((art) => (
-                <div 
-                  key={art.id} 
-                  className="p-5 bg-white rounded-2xl border border-slate-200/80 hover:border-slate-300 transition-all flex flex-col justify-between"
-                >
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-2 text-xs text-slate-500">
-                      <span>{isEn ? (art.categoryEn || art.category) : art.category}</span>
-                      <span aria-hidden="true">·</span>
-                      <span>{isEn ? `${art.readTimeMinutes} mins read` : `قراءة ${art.readTimeMinutes} دقائق`}</span>
-                    </div>
-                    <h4 className="font-bold text-slate-900 text-base leading-snug">
-                      {isEn ? (art.titleEn || art.title) : art.title}
-                    </h4>
-                    <p className="text-xs text-slate-600 leading-relaxed">
-                      {isEn ? (art.excerptEn || art.excerpt) : art.excerpt}
-                    </p>
-                  </div>
-
-                  <button
-                    onClick={() => setSelectedArticle(art)}
-                    className="mt-4 text-xs font-bold text-teal-800 hover:text-teal-900 flex items-center gap-1 self-start"
-                  >
-                    <span>{isEn ? 'Read Full Article' : 'قراءة المقال كاملاً'}</span>
-                    <ChevronDown className="w-3.5 h-3.5 rotate-270" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Patient FAQs */}
-      {config.faqs && faqs.length > 0 && (
-        <section className={`py-14 border-b border-slate-200/80 ${faqsStyle.sectionBg}`}>
-          <div className="max-w-4xl mx-auto px-4 sm:px-6 space-y-6">
-            <div className="text-center space-y-1">
-              <span className="text-xs font-bold uppercase tracking-wider text-teal-800">
-                {isEn ? 'Questions & Answers' : 'إجابات وتوضيحات'}
-              </span>
-              <h3 className="text-2xl font-bold text-slate-900">
-                {isEn ? 'Frequently Asked Questions' : 'الأسئلة الأكثر شيوعاً'}
-              </h3>
-            </div>
-
-            <div className="space-y-3">
-              {faqs.map((faq) => {
-                const isOpen = activeFaq === faq.id;
-                return (
-                  <div 
-                    key={faq.id} 
-                    className="bg-white rounded-xl border border-slate-200/80 overflow-hidden shadow-2xs"
-                  >
-                    <button
-                      onClick={() => setActiveFaq(isOpen ? null : faq.id)}
-                      className="w-full text-right p-4 font-bold text-slate-900 text-xs sm:text-sm flex items-center justify-between gap-3"
-                    >
-                      <span>{isEn ? (faq.questionEn || faq.question) : faq.question}</span>
-                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                    </button>
-                    {isOpen && (
-                      <div className="px-4 pb-4 text-xs text-slate-600 leading-relaxed border-t border-slate-100 pt-3">
-                        {isEn ? (faq.answerEn || faq.answer) : faq.answer}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* Contact Section */}
-      {config.contact && (
-        <section className="py-12 bg-slate-900 text-white">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6">
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6 text-center md:text-right">
-              <div>
-                <h4 className="text-xl font-bold">{isEn ? (doctor.nameEn || doctor.name) : doctor.name}</h4>
-                <p className="text-xs text-slate-400 mt-1">
-                  {isEn ? (doctor.titleEn || doctor.title) : doctor.title} · {isEn ? (doctor.clinic.nameEn || doctor.clinic.name) : doctor.clinic.name}
-                </p>
-                <p className="text-xs text-slate-400 mt-0.5">
-                  {isEn ? (doctor.clinic.addressEn || doctor.clinic.address) : doctor.clinic.address}، {isEn ? (doctor.clinic.cityEn || doctor.clinic.city) : doctor.clinic.city}
-                </p>
-              </div>
-
-              <div className="flex items-center gap-3">
-                <a
-                  href={`tel:${doctor.clinic.phone.replace(/[^0-9+]/g, '')}`}
-                  className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-semibold transition-colors flex items-center gap-2"
-                >
-                  <Phone className="w-4 h-4 text-teal-400" />
-                  <span>{isEn ? 'Call Clinic' : 'اتصال بالعيادة'}</span>
-                </a>
-
-                <button
-                  onClick={() => setIsBookingModalOpen(true)}
-                  className={`px-5 py-2.5 rounded-xl text-xs font-bold transition-all shadow-sm ${theme.buttonClass}`}
-                >
-                  {isEn ? 'Book Consultation' : 'حجز موعد كشف'}
+              ) : undefined}
+            />
+            <div className="mt-14 grid auto-rows-[220px] grid-cols-2 gap-4 sm:auto-rows-[260px] lg:grid-cols-4">
+              {filteredPhotos.map((photo, i) => (
+                <button key={photo.id || i} type="button" onClick={() => setSelectedGalleryPhoto(photo)}
+                  className={`group relative overflow-hidden rounded-[22px] bg-[var(--paper-2)] text-start cursor-zoom-in ${i % 5 === 0 ? 'col-span-2 row-span-2' : ''}`}>
+                  <img src={photo.url} alt={pick(photo.title, photo.titleEn) || t('صورة من العيادة', 'Clinic photo')} loading="lazy" className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.04]" />
+                  <span className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/65 to-transparent p-4 pt-12 text-white opacity-90">
+                    <span className="block text-[12px] text-white/70">{getCategoryLabel(photo.category)}</span>
+                    <span className="block truncate text-[15px] font-semibold">{pick(photo.title, photo.titleEn)}</span>
+                  </span>
                 </button>
-              </div>
+              ))}
             </div>
+          </div>
+        </section>
+      )}
 
-            <div className="mt-8 pt-6 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
-              <p>
-                {isEn ? `Medical License No: ${doctor.licenseNumber} · All Rights Reserved` : `رقم الترخيص الطبي: ${doctor.licenseNumber} · جميع الحقوق محفوظة`} {new Date().getFullYear()}
-              </p>
-              <div className="flex items-center gap-3 text-[11px] text-slate-500">
+      {/* ===== Testimonials ===== */}
+      {config.testimonials && (
+        <section id="reviews" className={`scroll-mt-20 ${testiT.cls}`}>
+          <div className="mx-auto max-w-[1200px] px-5 py-24 sm:px-8 sm:py-32">
+            <SectionHead
+              index={nextIndex()} isEn={isEn} dark={testiT.dark}
+              kicker={t('آراء المرضى', 'Patient voices')}
+              title={t('بيقولوا إيه بعد الزيارة', 'What patients say')}
+              lead={hasReviews ? (isEn ? `Rated ${doctor.rating.toFixed(1)} out of 5 across ${doctor.reviewCount} reviews.` : `تقييم ${doctor.rating.toFixed(1)} من 5 في ${doctor.reviewCount} تقييم.`) : undefined}
+              aside={<Reveal><button onClick={() => setIsAddReviewModalOpen(true)} className={btnGhost}><Plus className="h-4 w-4" />{t('اكتب تقييمك', 'Write a review')}</button></Reveal>}
+            />
+            {testimonials.length > 0 ? (
+              <div className="mt-14 grid grid-cols-1 gap-5 md:grid-cols-2">
+                {testimonials.map((r, i) => (
+                  <Reveal key={r.id} delay={Math.min(i, 4) * 0.06}>
+                    <figure className={`flex h-full flex-col rounded-[26px] border p-8 sm:p-10 ${testiT.dark ? 'border-white/10 bg-white/[.04]' : 'border-[var(--line)] bg-white'}`}>
+                      <div className="flex items-center justify-between">
+                        <QuoteMark className="h-7 w-9 text-[var(--accent)] opacity-80" />
+                        <span className="flex items-center gap-0.5" aria-label={isEn ? `${r.rating} out of 5` : `${r.rating} من 5`}>
+                          {[...Array(5)].map((_, s) => <Star key={s} aria-hidden="true" className={`h-4 w-4 ${s < Math.round(Number(r.rating) || 5) ? 'fill-[var(--accent)] text-[var(--accent)]' : 'text-[var(--line-strong)]'}`} />)}
+                        </span>
+                      </div>
+                      <blockquote className="mt-6 flex-1 text-[17px] leading-[1.95]">{pick(r.comment, r.commentEn)}</blockquote>
+                      <figcaption className={`mt-8 flex items-center justify-between gap-4 border-t pt-5 text-[14px] ${testiT.dark ? 'border-white/10' : 'border-[var(--line)]'}`}>
+                        <span className="font-semibold">{pick(r.patientName, r.patientNameEn)}</span>
+                        <span className={testiT.dark ? 'text-white/55' : 'text-[var(--muted)]'}>{pick(r.treatmentType, r.treatmentTypeEn) || r.date}</span>
+                      </figcaption>
+                    </figure>
+                  </Reveal>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-12 text-[16px] text-[var(--muted)]">{t('لسه مفيش تقييمات. كن أول من يكتب تجربته.', 'No reviews yet. Be the first to share your experience.')}</p>
+            )}
+          </div>
+        </section>
+      )}
+
+      {/* ===== Articles ===== */}
+      {config.articles && articles.length > 0 && (
+        <section className={artT.cls}>
+          <div className="mx-auto max-w-[1200px] px-5 py-24 sm:px-8 sm:py-32">
+            <SectionHead index={nextIndex()} isEn={isEn} dark={artT.dark} kicker={t('مقالات', 'Articles')} title={t('من مكتب الطبيب', "From the doctor's desk")} />
+            <div className="mt-14 grid grid-cols-1 gap-x-10 gap-y-4 md:grid-cols-2">
+              {articles.map((a, i) => (
+                <Reveal key={a.id} delay={Math.min(i, 4) * 0.06}>
+                  <button type="button" onClick={() => setSelectedArticle(a)} className={`group block w-full border-t py-8 text-start cursor-pointer ${artT.dark ? 'border-white/15' : 'border-[var(--line-strong)]'}`}>
+                    <span className={`flex items-center gap-3 text-[13px] ${artT.dark ? 'text-white/55' : 'text-[var(--muted)]'}`}>
+                      <span className="text-[var(--accent-dark)]">{pick(a.category, a.categoryEn)}</span>
+                      <span className="h-1 w-1 rounded-full bg-current opacity-50" />
+                      <span>{isEn ? `${a.readTimeMinutes} min read` : `${a.readTimeMinutes} دقايق قراءة`}</span>
+                    </span>
+                    <span className="font-display mt-3 block text-[22px] font-semibold leading-[1.55] group-hover:text-[var(--accent-dark)] transition-colors">{pick(a.title, a.titleEn)}</span>
+                    <span className={`mt-3 block text-[15.5px] leading-[1.85] ${artT.dark ? 'text-white/70' : 'text-[var(--muted)]'}`}>{pick(a.excerpt, a.excerptEn)}</span>
+                    <span className="mt-5 inline-flex items-center gap-2 text-[14px] font-semibold"><span className="mf-link">{t('اقرأ المقال', 'Read article')}</span><Arrow className="h-4 w-4" /></span>
+                  </button>
+                </Reveal>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ===== FAQ ===== */}
+      {config.faqs && faqs.length > 0 && (
+        <section id="faq" className={`scroll-mt-20 ${faqT.cls}`}>
+          <div className="mx-auto grid max-w-[1200px] grid-cols-1 gap-12 px-5 py-24 sm:px-8 sm:py-32 lg:grid-cols-12">
+            <div className="lg:col-span-4">
+              <SectionHead index={nextIndex()} isEn={isEn} dark={faqT.dark} kicker={t('أسئلة شائعة', 'FAQ')} title={t('قبل ما تيجي', 'Before your visit')} />
+            </div>
+            <div className="lg:col-span-8">
+              <ul className={`border-t ${faqT.dark ? 'border-white/15' : 'border-[var(--line-strong)]'}`}>
+                {faqs.map((faq) => {
+                  const open = activeFaq === faq.id;
+                  return (
+                    <li key={faq.id} className={`border-b ${faqT.dark ? 'border-white/15' : 'border-[var(--line)]'}`}>
+                      <h3>
+                        <button type="button" aria-expanded={open} aria-controls={`faq-${faq.id}`} onClick={() => setActiveFaq(open ? null : faq.id)} className="flex w-full items-center justify-between gap-6 py-6 text-start cursor-pointer">
+                          <span className="text-[18px] font-semibold leading-[1.6]">{pick(faq.question, faq.questionEn)}</span>
+                          <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full border transition-colors ${open ? 'border-[var(--accent)] bg-[var(--accent)] text-white' : faqT.dark ? 'border-white/25' : 'border-[var(--line-strong)]'}`}>
+                            {open ? <Minus className="h-4 w-4" /> : <Plus className="h-4 w-4" />}
+                          </span>
+                        </button>
+                      </h3>
+                      <div id={`faq-${faq.id}`} hidden={!open} className={`max-w-[65ch] pb-7 text-[16px] leading-[1.95] ${faqT.dark ? 'text-white/75' : 'text-[var(--ink-2)]'}`}>
+                        {pick(faq.answer, faq.answerEn)}
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* ===== Closing CTA + footer ===== */}
+      {config.contact && (
+        <footer className="relative overflow-hidden bg-[var(--night)] text-white">
+          <PulseLine className="absolute inset-x-0 top-10 h-16 w-full opacity-40" />
+          <div className="relative mx-auto max-w-[1200px] px-5 pb-28 pt-28 sm:px-8 sm:pb-12">
+            <Reveal className="max-w-3xl">
+              <p className="text-[14px] text-white/55">{pick(clinic.name, clinic.nameEn)}</p>
+              <h2 className="font-display mt-4 text-[36px] font-semibold leading-[1.3] sm:text-[56px]">{t('خطوتك الجاية؟ ميعاد واحد.', 'Your next step is one appointment.')}</h2>
+              <div className="mt-10 flex flex-wrap gap-3">
+                <button onClick={() => setIsBookingModalOpen(true)} className="inline-flex items-center gap-2.5 rounded-full bg-white px-7 py-4 text-[15px] font-semibold text-[var(--ink)] transition-colors hover:bg-[var(--accent-soft)] cursor-pointer">
+                  {t('احجز استشارتك', 'Book a consultation')}<Arrow className="h-4 w-4" />
+                </button>
+                {telNumber && (
+                  <a href={`tel:${telNumber}`} className="inline-flex items-center gap-2.5 rounded-full border border-white/25 px-6 py-[15px] text-[15px] font-semibold transition-colors hover:bg-white/10">
+                    <Phone className="h-4 w-4" />{t('اتصل بالعيادة', 'Call the clinic')}
+                  </a>
+                )}
+              </div>
+            </Reveal>
+
+            <div className="mt-24 flex flex-col gap-6 border-t border-white/10 pt-8 text-[13.5px] text-white/50 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col gap-1">
+                <span className="font-semibold text-white/80">{pick(doctor.name, doctor.nameEn)}</span>
+                <span>{pick(clinic.address, clinic.addressEn)}{(clinic.city || clinic.cityEn) ? ` · ${pick(clinic.city, clinic.cityEn)}` : ''}</span>
+                {doctor.licenseNumber && <span>{t('رقم الترخيص', 'License no.')} <span dir="ltr" className="font-mono">{doctor.licenseNumber}</span> · © {new Date().getFullYear()}</span>}
+              </div>
+              <div className="flex items-center gap-4">
                 {!isAdmin && onOpenAdminLogin && (
-                  <button
-                    onClick={onOpenAdminLogin}
-                    className="hover:text-teal-400 transition-colors flex items-center gap-1 cursor-pointer"
-                    title={isEn ? 'Admin Login' : 'تسجيل دخول الإدارة'}
-                  >
-                    <Lock className="w-3 h-3" />
-                    <span>{isEn ? 'Admin Access' : 'دخول المشرف'}</span>
+                  <button onClick={onOpenAdminLogin} className="flex h-11 items-center gap-1.5 hover:text-white cursor-pointer" aria-label={t('دخول الإدارة', 'Admin login')}>
+                    <Lock className="h-3.5 w-3.5" /><span>{t('دخول المشرف', 'Admin')}</span>
                   </button>
                 )}
-                <span>·</span>
-                <span>{isEn ? 'Powered by' : 'تم إنشاء هذا الموقع بواسطة'}</span>
-                <span className="text-slate-400 font-bold">MedFrame Studio</span>
+                <span>{t('تصميم وتطوير', 'Crafted by')} <span className="font-semibold text-white/80">MedFrame Studio</span></span>
               </div>
             </div>
           </div>
-        </section>
+        </footer>
       )}
 
-      {/* Modals */}
-
-      {/* 1. Doctor Photo Zoom Lightbox */}
+      {/* ===== Doctor photo lightbox ===== */}
       {isDoctorPhotoZoomed && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative max-w-2xl w-full bg-white rounded-3xl overflow-hidden shadow-2xl border border-slate-800">
-            {/* Close Button */}
-            <button
-              onClick={() => setIsDoctorPhotoZoomed(false)}
-              className="absolute top-4 right-4 z-20 p-2.5 bg-slate-900/70 hover:bg-slate-900 text-white rounded-full transition-all cursor-pointer shadow-lg"
-              title={isEn ? 'Close' : 'إغلاق'}
-            >
-              <CloseIcon className="w-5 h-5" />
-            </button>
-
-            <div className="max-h-[75vh] overflow-hidden bg-slate-950 flex items-center justify-center">
-              {doctor.avatarUrl ? (
-                <img
-                  src={doctor.avatarUrl}
-                  alt={doctor.name}
-                  className="max-h-[75vh] w-auto max-w-full object-contain"
-                />
-              ) : (
-                <div className="py-24 text-center text-white">
-                  <DoctorAvatar
-                    name={doctor.name}
-                    avatarUrl={doctor.avatarUrl}
-                    themeColor={doctor.themeColor}
-                    size="3xl"
-                    className="mx-auto"
-                  />
-                </div>
-              )}
+        <div role="dialog" aria-modal="true" aria-label={pick(doctor.name, doctor.nameEn)} className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(10,14,24,.88)] p-4 backdrop-blur-md" onClick={() => setIsDoctorPhotoZoomed(false)}>
+          <div className="relative w-full max-w-xl overflow-hidden rounded-[28px] bg-white" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setIsDoctorPhotoZoomed(false)} className="absolute end-4 top-4 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black cursor-pointer" aria-label={t('إغلاق', 'Close')}><CloseIcon className="h-5 w-5" /></button>
+            <div className="h-[70vh] max-h-[640px]">
+              <ArchPortrait name={pick(doctor.name, doctor.nameEn)} avatarUrl={doctor.avatarUrl} isEn={isEn} heightClass="h-full" />
             </div>
-
-            <div className="p-5 bg-white border-t border-slate-100 flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4 p-5">
               <div>
-                <h4 className="font-bold text-slate-900 text-base">{isEn ? (doctor.nameEn || doctor.name) : doctor.name}</h4>
-                <p className="text-xs text-slate-500">{isEn ? (doctor.titleEn || doctor.title) : doctor.title} · {isEn ? (doctor.specialtyEn || doctor.specialty) : doctor.specialty}</p>
+                <p className="font-display text-[17px] font-semibold text-[var(--ink)]">{pick(doctor.name, doctor.nameEn)}</p>
+                <p className="text-[14px] text-[var(--muted)]">{pick(doctor.title, doctor.titleEn)}</p>
               </div>
-              <button
-                onClick={() => setIsDoctorPhotoZoomed(false)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer"
-              >
-                {isEn ? 'Close' : 'إغلاق'}
-              </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* 2. Gallery Photo Lightbox with Next / Previous navigation */}
+      {/* ===== Gallery lightbox ===== */}
       {selectedGalleryPhoto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="relative max-w-4xl w-full bg-white rounded-3xl overflow-hidden shadow-2xl border border-slate-800">
-            {/* Close Button */}
-            <button
-              onClick={() => setSelectedGalleryPhoto(null)}
-              className="absolute top-4 right-4 z-20 p-2.5 bg-slate-900/70 hover:bg-slate-900 text-white rounded-full transition-all cursor-pointer shadow-lg"
-              title={isEn ? 'Close' : 'إغلاق'}
-            >
-              <CloseIcon className="w-5 h-5" />
-            </button>
-
-            {/* Nav Arrows */}
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(10,14,24,.9)] p-4 backdrop-blur-md" onClick={() => setSelectedGalleryPhoto(null)}>
+          <div className="relative w-full max-w-5xl" onClick={e => e.stopPropagation()}>
+            <button onClick={() => setSelectedGalleryPhoto(null)} className="absolute end-3 top-3 z-20 flex h-11 w-11 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black cursor-pointer" aria-label={t('إغلاق', 'Close')}><CloseIcon className="h-5 w-5" /></button>
             {filteredPhotos.length > 1 && (
               <>
-                <button
-                  onClick={() => {
-                    const curIdx = filteredPhotos.findIndex(p => p.id === selectedGalleryPhoto.id);
-                    const prevIdx = (curIdx - 1 + filteredPhotos.length) % filteredPhotos.length;
-                    setSelectedGalleryPhoto(filteredPhotos[prevIdx]);
-                  }}
-                  className="absolute left-4 top-1/2 -translate-y-1/2 z-20 p-3 bg-slate-900/60 hover:bg-slate-900 text-white rounded-full transition-all cursor-pointer shadow-lg"
-                  title={isEn ? 'Previous' : 'السابق'}
-                >
-                  <ChevronLeft className="w-5 h-5" />
-                </button>
-
-                <button
-                  onClick={() => {
-                    const curIdx = filteredPhotos.findIndex(p => p.id === selectedGalleryPhoto.id);
-                    const nextIdx = (curIdx + 1) % filteredPhotos.length;
-                    setSelectedGalleryPhoto(filteredPhotos[nextIdx]);
-                  }}
-                  className="absolute right-4 top-1/2 -translate-y-1/2 z-20 p-3 bg-slate-900/60 hover:bg-slate-900 text-white rounded-full transition-all cursor-pointer shadow-lg"
-                  title={isEn ? 'Next' : 'التالي'}
-                >
-                  <ChevronRight className="w-5 h-5" />
-                </button>
+                <button onClick={() => { const c = filteredPhotos.findIndex(p => p.id === selectedGalleryPhoto.id); setSelectedGalleryPhoto(filteredPhotos[(c - 1 + filteredPhotos.length) % filteredPhotos.length]); }} className="absolute start-3 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black cursor-pointer" aria-label={t('السابق', 'Previous')}>{isEn ? <ChevronLeft className="h-5 w-5" /> : <ChevronRight className="h-5 w-5" />}</button>
+                <button onClick={() => { const c = filteredPhotos.findIndex(p => p.id === selectedGalleryPhoto.id); setSelectedGalleryPhoto(filteredPhotos[(c + 1) % filteredPhotos.length]); }} className="absolute end-3 top-1/2 z-20 flex h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black cursor-pointer" aria-label={t('التالي', 'Next')}>{isEn ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}</button>
               </>
             )}
-
-            <div className="max-h-[70vh] bg-slate-950 flex items-center justify-center overflow-hidden">
-              <img
-                src={selectedGalleryPhoto.url}
-                alt={selectedGalleryPhoto.title}
-                className="max-h-[70vh] w-auto max-w-full object-contain"
-              />
-            </div>
-
-            <div className="p-5 bg-white border-t border-slate-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-              <div className="space-y-1">
-                <div className="flex items-center gap-2">
-                  <h4 className="font-bold text-slate-900 text-base">
-                    {isEn ? (selectedGalleryPhoto.titleEn || selectedGalleryPhoto.title) : selectedGalleryPhoto.title}
-                  </h4>
-                  {selectedGalleryPhoto.category && (
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-50 text-teal-800">
-                      {getCategoryLabel(selectedGalleryPhoto.category, isEn)}
-                    </span>
-                  )}
-                </div>
-                {(selectedGalleryPhoto.caption || selectedGalleryPhoto.captionEn) && (
-                  <p className="text-xs text-slate-600 leading-relaxed max-w-2xl">
-                    {isEn ? (selectedGalleryPhoto.captionEn || selectedGalleryPhoto.caption) : selectedGalleryPhoto.caption}
-                  </p>
-                )}
-              </div>
-
-              <button
-                onClick={() => setSelectedGalleryPhoto(null)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold self-end sm:self-auto cursor-pointer"
-              >
-                {isEn ? 'Close' : 'إغلاق'}
-              </button>
+            <img src={selectedGalleryPhoto.url} alt={pick(selectedGalleryPhoto.title, selectedGalleryPhoto.titleEn)} className="mx-auto max-h-[78vh] w-auto rounded-[22px] object-contain" />
+            <div className="mt-4 text-center text-white">
+              <p className="text-[16px] font-semibold">{pick(selectedGalleryPhoto.title, selectedGalleryPhoto.titleEn)}</p>
+              {(selectedGalleryPhoto.caption || selectedGalleryPhoto.captionEn) && <p className="mx-auto mt-1 max-w-2xl text-[14px] text-white/70">{pick(selectedGalleryPhoto.caption, selectedGalleryPhoto.captionEn)}</p>}
             </div>
           </div>
         </div>
       )}
 
+      {/* ===== Article reader ===== */}
       {selectedArticle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-2xl w-full max-h-[85vh] overflow-y-auto p-6 shadow-2xl border border-slate-200">
-            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
-              <span className="text-xs font-semibold text-teal-800">
-                {isEn ? (selectedArticle.categoryEn || selectedArticle.category) : selectedArticle.category}
-              </span>
-              <button
-                onClick={() => setSelectedArticle(null)}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100"
-              >
-                ✕
-              </button>
+        <div role="dialog" aria-modal="true" className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(10,14,24,.6)] p-4 backdrop-blur-sm" onClick={() => setSelectedArticle(null)}>
+          <article className="max-h-[88vh] w-full max-w-2xl overflow-y-auto rounded-[28px] bg-[var(--paper)] p-8 sm:p-12" onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-[13px] text-[var(--accent-dark)]">{pick(selectedArticle.category, selectedArticle.categoryEn)}</span>
+              <button onClick={() => setSelectedArticle(null)} className="flex h-11 w-11 items-center justify-center rounded-full hover:bg-black/5 cursor-pointer" aria-label={t('إغلاق المقال', 'Close article')}><CloseIcon className="h-5 w-5" /></button>
             </div>
-            <div className="py-4 space-y-4">
-              <h3 className="text-xl font-bold text-slate-900">
-                {isEn ? (selectedArticle.titleEn || selectedArticle.title) : selectedArticle.title}
-              </h3>
-              <div className="text-xs text-slate-500 flex items-center gap-3">
-                <span>{isEn ? `By ${doctor.nameEn || doctor.name}` : `بقلم ${doctor.name}`}</span>
-                <span>·</span>
-                <span>{selectedArticle.publishedDate}</span>
-              </div>
-              <div className="text-sm text-slate-700 leading-relaxed whitespace-pre-line pt-2">
-                {isEn ? (selectedArticle.contentEn || selectedArticle.content) : selectedArticle.content}
-              </div>
-            </div>
-            <div className="pt-4 border-t border-slate-100 text-left">
-              <button
-                onClick={() => setSelectedArticle(null)}
-                className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-semibold"
-              >
-                {isEn ? 'Close' : 'إغلاق المقال'}
-              </button>
-            </div>
-          </div>
+            <h2 className="font-display mt-4 text-[28px] font-semibold leading-[1.45] text-[var(--ink)]">{pick(selectedArticle.title, selectedArticle.titleEn)}</h2>
+            <p className="mt-3 text-[14px] text-[var(--muted)]">{isEn ? `By ${doctor.nameEn || doctor.name}` : `بقلم ${doctor.name}`} · {selectedArticle.publishedDate}</p>
+            <div className="mt-8 whitespace-pre-line text-[17px] leading-[2] text-[var(--ink-2)]">{pick(selectedArticle.content, selectedArticle.contentEn)}</div>
+          </article>
         </div>
       )}
 
-      <AppointmentModal
-        doctor={doctor}
-        isOpen={isBookingModalOpen}
-        onClose={() => setIsBookingModalOpen(false)}
-      />
+      <AppointmentModal doctor={doctor} isOpen={isBookingModalOpen} onClose={() => setIsBookingModalOpen(false)} />
+      <AddReviewModal isOpen={isAddReviewModalOpen} onClose={() => setIsAddReviewModalOpen(false)} doctorName={pick(doctor.name, doctor.nameEn)} themeColor={doctor.themeColor} onAddReview={handleAddPatientReview} />
 
-      <AddReviewModal
-        isOpen={isAddReviewModalOpen}
-        onClose={() => setIsAddReviewModalOpen(false)}
-        doctorName={isEn ? (doctor.nameEn || doctor.name) : doctor.name}
-        themeColor={doctor.themeColor}
-        onAddReview={handleAddPatientReview}
-      />
-
-      {/* Mobile Sticky Action Bar */}
-      <aside aria-label="Mobile Quick Action" className="sm:hidden fixed bottom-0 inset-x-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 px-4 py-2.5 shadow-lg flex items-center justify-between gap-3">
-        <a
-          href={`https://wa.me/${doctor.clinic.whatsapp.replace(/[^0-9]/g, '')}`}
-          target="_blank"
-          rel="noreferrer"
-          className="flex-1 py-2 px-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold text-center flex items-center justify-center gap-1.5"
-        >
-          <MessageSquare className="w-3.5 h-3.5" />
-          <span>{isEn ? 'WhatsApp' : 'واتساب'}</span>
-        </a>
-
-        <button
-          onClick={() => setIsBookingModalOpen(true)}
-          className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold text-center shadow-sm ${theme.buttonClass}`}
-        >
-          {isEn ? 'Book Appointment' : 'حجز موعد'}
+      {/* ===== Mobile action bar ===== */}
+      <aside aria-label={t('إجراءات سريعة', 'Quick actions')} className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-2 border-t border-[var(--line)] bg-[color-mix(in_srgb,var(--paper)_92%,transparent)] px-4 pb-[max(10px,env(safe-area-inset-bottom))] pt-2.5 backdrop-blur-xl sm:hidden">
+        {waHref && (
+          <a href={waHref} target="_blank" rel="noreferrer" className="flex h-12 flex-1 items-center justify-center gap-2 rounded-full border border-[var(--line-strong)] text-[15px] font-semibold text-[var(--ink)]">
+            <ChatGlyph className="h-[18px] w-[18px]" />{t('واتساب', 'WhatsApp')}
+          </a>
+        )}
+        <button onClick={() => setIsBookingModalOpen(true)} className="flex h-12 flex-1 items-center justify-center rounded-full bg-[var(--ink)] text-[15px] font-semibold text-white cursor-pointer">
+          {t('احجز موعد', 'Book a visit')}
         </button>
       </aside>
-
     </div>
   );
 };
