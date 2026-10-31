@@ -160,7 +160,7 @@ export function SiteInspector({ site, onChange }: { site: Site; onChange: (s: Si
     <div className="flex h-full flex-col">
       <div className="space-y-3 border-b border-slate-100 px-4 pb-3 pt-4">
         <div className="text-[11px] font-semibold uppercase tracking-wide text-sky-600">الموقع كله</div>
-        <p className="text-[12px] leading-5 text-slate-500">دوس على أي قسم في المعاينة عشان تعدّله لوحده. هنا الإعدادات اللي بتسري على الموقع كله.</p>
+        <p className="text-[12px] leading-5 text-slate-500">دوس على أي كلام في الصفحة واكتب على طول، ودوس على أي صورة عشان تغيّرها. ولما تختار قسم بيظهرله شريط فيه الترتيب والحجم والخلفية. هنا الإعدادات اللي بتسري على الموقع كله.</p>
         <Segmented value={tab} onChange={setTab} options={[{ value: 'brand', label: 'الهوية والألوان' }, { value: 'settings', label: 'التواصل والإعدادات' }]} />
       </div>
       <div className="flex-1 overflow-y-auto">

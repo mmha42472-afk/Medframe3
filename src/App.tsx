@@ -458,7 +458,7 @@ function MainApp() {
     }
     return (
       <Suspense fallback={<div className="grid h-screen place-items-center bg-slate-950 text-sm text-slate-400">جاري فتح الاستوديو…</div>}>
-        <StudioApp onExit={() => navigateTo('dashboard')} />
+        <StudioApp onExit={() => navigateTo('dashboard')} doctors={doctors} />
       </Suspense>
     );
   }
