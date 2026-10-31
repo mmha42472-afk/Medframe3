@@ -2,13 +2,17 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowRight, Copy, Download, Eye, EyeOff, FileJson, GripVertical, LayoutTemplate, Monitor, MousePointerClick,
   Play, Plus, Redo2, Settings2, Smartphone, Tablet, Trash2, Undo2, Upload, ChevronUp, ChevronDown, X, Check, Pencil,
+  Globe, Palette, AArrowUp, AArrowDown, Stethoscope,
 } from 'lucide-react';
+import type { DoctorProfile } from '../../types/doctor';
+import { doctorToSite } from '../fromDoctor';
+import { PublishDialog } from './PublishDialog';
 import type { Section, SectionType, Site } from '../types';
 import { SiteView } from '../SiteView';
 import { SECTION_DEFS, SECTION_ORDER, defaultSettings, defaultTheme, fontsHref, makeSection, normalizeSection } from '../schema';
 import { TEMPLATES } from '../templates';
 import { deleteSite, listSites, saveSite } from '../storage';
-import { clone, downloadFile, slugify, uid } from '../utils';
+import { clone, downloadFile, fileToDataUrl, slugify, uid } from '../utils';
 import { SectionInspector, SiteInspector } from './Inspector';
 import siteCss from '../site.css?raw';
 import runtimeJs from '../runtime.js?raw';
@@ -27,7 +31,7 @@ function ensureThree() {
 type Device = 'desktop' | 'tablet' | 'mobile';
 const DEVICE_W: Record<Device, number> = { desktop: 1280, tablet: 820, mobile: 390 };
 
-export default function StudioApp({ onExit }: { onExit: () => void }) {
+export default function StudioApp({ onExit, doctors = [] }: { onExit: () => void; doctors?: DoctorProfile[] }) {
   const [sites, setSites] = useState<Site[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [site, setSite] = useState<Site | null>(null);
@@ -47,6 +51,13 @@ export default function StudioApp({ onExit }: { onExit: () => void }) {
   const importRef = useRef<HTMLInputElement>(null);
   const dragId = useRef<string | null>(null);
   const [canvasW, setCanvasW] = useState(1200);
+  const [editV, setEditV] = useState(0);
+  const [publishOpen, setPublishOpen] = useState(false);
+  const [tb, setTb] = useState<{ top: number; left: number; width: number } | null>(null);
+  const [bgPop, setBgPop] = useState(false);
+  const siteRef = useRef<Site | null>(null);
+  const imgInput = useRef<HTMLInputElement>(null);
+  const pendingImg = useRef<string | null>(null);
 
   const flash = (m: string) => { setToast(m); window.setTimeout(() => setToast(''), 2600); };
 
@@ -68,6 +79,8 @@ export default function StudioApp({ onExit }: { onExit: () => void }) {
     setSite(norm); setSelectedId(null); past.current = []; future.current = [];
     try { localStorage.setItem('mf-studio-last', s.id); } catch { /* */ }
   };
+
+  siteRef.current = site;
 
   /* ---------- history + autosave ---------- */
   const update = useCallback((next: Site, coalesce = true) => {
@@ -116,6 +129,20 @@ export default function StudioApp({ onExit }: { onExit: () => void }) {
   }, [site?.id]);
   const frameW = device === 'desktop' ? Math.max(DEVICE_W.desktop, Math.min(1440, canvasW)) : DEVICE_W[device];
   const zoom = Math.min(1, (canvasW - (device === 'desktop' ? 0 : 48)) / (frameW + (device === 'desktop' ? 0 : 20)));
+
+  /* floating toolbar follows the selected section */
+  useEffect(() => {
+    const place = () => {
+      const c = canvasRef.current;
+      const el = selectedId && c?.querySelector(`[data-sid="${selectedId}"]`);
+      if (!c || !el || interact) { setTb(null); return; }
+      const cr = c.getBoundingClientRect(), r = (el as HTMLElement).getBoundingClientRect();
+      setTb({ top: r.top - cr.top + c.scrollTop, left: r.left - cr.left + c.scrollLeft, width: r.width });
+    };
+    const t = window.setTimeout(place, 60);
+    window.addEventListener('resize', place);
+    return () => { window.clearTimeout(t); window.removeEventListener('resize', place); };
+  }, [selectedId, site, device, canvasW, interact, editV]);
 
   /* ---------- runtime in the canvas (re-wired after edits settle) ---------- */
   const uses3d = !!site && site.sections.some(s => s.visible && (s.style.bg3d !== 'none' || (s.type === 'hero' && s.content.visual === '3d')));
@@ -169,9 +196,67 @@ export default function StudioApp({ onExit }: { onExit: () => void }) {
     n.splice(n.findIndex(s => s.id === targetId), 0, item); setSections(n);
   };
 
+  /* ---------- editing straight on the page ---------- */
+  const setPath = (path: string, val: string) => {
+    const cur = siteRef.current; if (!cur) return;
+    const [sid, k, iS, sub] = path.split('|');
+    const sec = cur.sections.find(s => s.id === sid); if (!sec) return;
+    const c: Record<string, any> = { ...sec.content };
+    if (iS === '') c[k] = val;
+    else {
+      const i = Number(iS); const arr = [...(c[k] || [])];
+      arr[i] = sub === '' ? val : { ...(arr[i] || {}), [sub]: val };
+      c[k] = arr;
+    }
+    update({ ...cur, sections: cur.sections.map(s => (s.id === sid ? { ...sec, content: c } : s)) }, false);
+  };
+  const startEdit = (el: HTMLElement) => {
+    if (el.isContentEditable) return;
+    const raw = el.dataset.raw || '';
+    const ml = el.dataset.ml === '1';
+    const path = el.dataset.edit || '';
+    try { el.contentEditable = 'plaintext-only'; } catch { el.contentEditable = 'true'; }
+    if (el.contentEditable !== 'plaintext-only') el.contentEditable = 'true';
+    el.innerText = raw;
+    el.focus();
+    const sel = window.getSelection(); const r = document.createRange(); r.selectNodeContents(el); r.collapse(false); sel?.removeAllRanges(); sel?.addRange(r);
+    let cancelled = false;
+    const onKey = (ev: KeyboardEvent) => {
+      ev.stopPropagation();
+      if (ev.key === 'Enter' && (!ml || ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); el.blur(); }
+      if (ev.key === 'Escape') { cancelled = true; el.blur(); }
+    };
+    const onBlur = () => {
+      el.removeEventListener('keydown', onKey); el.removeEventListener('blur', onBlur);
+      el.contentEditable = 'false';
+      let val = el.innerText.replace(/\u00a0/g, ' ').replace(/\n+$/, '');
+      if (!ml) val = val.replace(/\s*\n\s*/g, ' ');
+      if (!cancelled && val !== raw) setPath(path, val);
+      setEditV(v => v + 1);
+    };
+    el.addEventListener('keydown', onKey); el.addEventListener('blur', onBlur);
+  };
+  const onPickImage = async (f?: File | null) => {
+    const path = pendingImg.current; pendingImg.current = null;
+    if (!f || !path) return;
+    setPath(path, await fileToDataUrl(f));
+    flash('اتغيرت الصورة');
+  };
+
   /* ---------- canvas clicks: select sections, keep links inside the preview ---------- */
   const onCanvasClick = (e: React.MouseEvent) => {
     const el = e.target as HTMLElement;
+    if (!interact) {
+      const ed = el.closest('[data-edit]') as HTMLElement | null;
+      const im = el.closest('[data-img]') as HTMLElement | null;
+      if (ed || im) {
+        e.preventDefault();
+        const sec = el.closest('[data-sid]') as HTMLElement | null;
+        if (sec) setSelectedId(sec.dataset.sid || null);
+        if (ed) { if (!ed.isContentEditable) startEdit(ed); return; }
+        if (im) { pendingImg.current = im.dataset.img || null; imgInput.current?.click(); return; }
+      }
+    }
     const a = el.closest('a') as HTMLAnchorElement | null;
     const href = a?.getAttribute('href') || '';
     if (a && href.startsWith('#')) {
@@ -190,6 +275,11 @@ export default function StudioApp({ onExit }: { onExit: () => void }) {
     const tpl = TEMPLATES.find(t => t.id === tplId)!;
     const s = tpl.build(name || undefined);
     saveSite(s); setSites(l => [s, ...l]); openSite(s); setGallery(false);
+  };
+  const createFromDoctor = (d: DoctorProfile) => {
+    const s = { ...doctorToSite(d), sourceDoctorId: d.id };
+    saveSite(s); setSites(l => [s, ...l]); openSite(s); setGallery(false);
+    flash(`اتفتح موقع ${d.name} في الاستوديو`);
   };
   const duplicateSite = () => {
     if (!site) return;
@@ -227,7 +317,7 @@ export default function StudioApp({ onExit }: { onExit: () => void }) {
 
   return (
     <div className="flex h-screen flex-col bg-slate-100 text-slate-800" dir="rtl">
-      <style>{siteCss}{`.mf-canvas [data-sid]{cursor:${interact ? 'auto' : 'pointer'};} .mf-canvas [data-sid]:hover{outline:${interact ? 'none' : '1.5px dashed rgba(53,189,242,.7)'};outline-offset:-2px;} ${outline}`}</style>
+      <style>{siteCss}{`.mf-canvas [data-sid]{cursor:${interact ? 'auto' : 'pointer'};} .mf-canvas [data-sid]:hover{outline:${interact ? 'none' : '1.5px dashed rgba(53,189,242,.7)'};outline-offset:-2px;} ${outline} .mf-canvas [data-edit]{cursor:${interact ? 'inherit' : 'text'};border-radius:4px;} .mf-canvas [data-edit]:hover{outline:${interact ? 'none' : '1px dashed rgba(53,189,242,.9)'};outline-offset:2px;} .mf-canvas [data-edit][contenteditable=true],.mf-canvas [data-edit][contenteditable=plaintext-only]{outline:2px solid #35BDF2;outline-offset:3px;background:rgba(53,189,242,.10);cursor:text;white-space:pre-wrap;} .mf-canvas [data-img]{cursor:${interact ? 'inherit' : 'copy'};} .mf-canvas img[data-img]:hover,.mf-canvas div[data-img]:hover{outline:${interact ? 'none' : '2px solid #35BDF2'};outline-offset:-2px;filter:${interact ? 'none' : 'brightness(.92)'};}`}</style>
       {fontLink && <link rel="stylesheet" href={fontLink} />}
 
       {/* ---------- top bar ---------- */}
@@ -257,6 +347,9 @@ export default function StudioApp({ onExit }: { onExit: () => void }) {
             </button>
             <button onClick={replay} className="flex cursor-pointer items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold text-sky-100 hover:bg-white/10"><Play className="h-4 w-4" /> شغّل الحركة</button>
             <span className="hidden w-16 text-center text-[11px] text-sky-200/70 xl:block">{saved === 'saving' ? 'بيتحفظ…' : 'اتحفظ ✓'}</span>
+            <button onClick={() => setPublishOpen(true)} className="flex cursor-pointer items-center gap-1.5 rounded-lg bg-emerald-500 px-3.5 py-1.5 text-[12.5px] font-bold text-white hover:bg-emerald-600">
+              <Globe className="h-4 w-4" />{site.publish ? 'انشر التعديلات' : 'نشر'}
+            </button>
             <ExportMenu onHtml={exportHtml} onJson={exportJson} onImport={() => importRef.current?.click()} />
             <input ref={importRef} type="file" accept="application/json,.json" hidden onChange={e => { importJson(e.target.files?.[0]); e.target.value = ''; }} />
           </>
@@ -309,8 +402,37 @@ export default function StudioApp({ onExit }: { onExit: () => void }) {
           {/* ---------- canvas ---------- */}
           <main ref={canvasRef} className="mf-canvas relative isolate min-w-0 flex-1 overflow-y-auto bg-[radial-gradient(#cbd5e1_1px,transparent_1px)] [background-size:18px_18px]" onClickCapture={onCanvasClick} onSubmitCapture={onCanvasSubmit}>
             <div className={`mx-auto ${device === 'desktop' ? '' : 'my-6 overflow-clip rounded-[28px] border-[10px] border-slate-900 shadow-2xl'}`} style={{ width: frameW, zoom }}>
-              <SiteView key={playKey} site={site} mode="edit" animate={playing} />
+              <SiteView key={playKey} site={site} mode="edit" animate={playing} v={editV} />
             </div>
+            {tb && selected && (
+              <div className="pointer-events-none absolute z-[70]" style={{ top: Math.max(tb.top + 8, 8), left: tb.left + 8, width: Math.max(0, tb.width - 16) }} dir="rtl">
+                <div className="pointer-events-auto inline-flex items-center gap-0.5 rounded-xl bg-[#0B2D5C] p-1 text-white shadow-xl ring-1 ring-white/10" onClick={e => e.stopPropagation()}>
+                  <span className="max-w-40 truncate px-2 text-[11.5px] font-bold">{selected.label}</span>
+                  <TbBtn title="لفوق" onClick={() => move(selected.id, -1)}><ChevronUp className="h-4 w-4" /></TbBtn>
+                  <TbBtn title="لتحت" onClick={() => move(selected.id, 1)}><ChevronDown className="h-4 w-4" /></TbBtn>
+                  <i className="mx-0.5 h-5 w-px bg-white/20" />
+                  <TbBtn title="صغّر الكلام" onClick={() => patchSection({ ...selected, style: { ...selected.style, titleScale: Math.max(0.6, +(selected.style.titleScale - 0.1).toFixed(2)), textScale: Math.max(0.8, +(selected.style.textScale - 0.05).toFixed(2)) } })}><AArrowDown className="h-4 w-4" /></TbBtn>
+                  <TbBtn title="كبّر الكلام" onClick={() => patchSection({ ...selected, style: { ...selected.style, titleScale: Math.min(1.8, +(selected.style.titleScale + 0.1).toFixed(2)), textScale: Math.min(1.4, +(selected.style.textScale + 0.05).toFixed(2)) } })}><AArrowUp className="h-4 w-4" /></TbBtn>
+                  <div className="relative">
+                    <TbBtn title="الخلفية" onClick={() => setBgPop(v => !v)}><Palette className="h-4 w-4" /></TbBtn>
+                    {bgPop && (
+                      <div className="absolute right-0 top-full mt-2 grid w-56 grid-cols-6 gap-1.5 rounded-xl bg-white p-2 shadow-2xl ring-1 ring-slate-200">
+                        {[['default', ''], ['transparent', ''], ['solid', '#FFFFFF'], ['solid', site.theme.paper], ['solid', '#EEF6F4'], ['solid', '#F2F4FC'],
+                          ['solid', site.theme.night], ['solid', site.theme.primary], ['gradient', site.theme.night, site.theme.primaryDark], ['gradient', site.theme.primary, site.theme.primaryDark], ['glass', '#FFFFFF'], ['solid', '#FFF7ED']].map(([m, a, b], i) => (
+                          <button key={i} title={m === 'default' ? 'افتراضي' : m === 'transparent' ? 'شفاف' : m === 'glass' ? 'زجاج' : ''} onClick={() => { patchSection({ ...selected, style: { ...selected.style, bgMode: m as any, bgColor: a || selected.style.bgColor, bgColor2: b || selected.style.bgColor2, bgOpacity: m === 'glass' ? 55 : 100 } }); setBgPop(false); }}
+                            className="aspect-square cursor-pointer rounded-lg ring-1 ring-slate-200 transition hover:scale-110"
+                            style={{ background: m === 'default' ? 'repeating-linear-gradient(45deg,#fff 0 4px,#e2e8f0 4px 8px)' : m === 'transparent' ? 'repeating-conic-gradient(#e2e8f0 0 25%,#fff 0 50%) 0 0/10px 10px' : m === 'gradient' ? `linear-gradient(160deg, ${a}, ${b})` : m === 'glass' ? 'linear-gradient(135deg,rgba(255,255,255,.9),rgba(186,230,253,.6))' : a }} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <i className="mx-0.5 h-5 w-px bg-white/20" />
+                  <TbBtn title={selected.visible ? 'اخفي' : 'اظهر'} onClick={() => patchSection({ ...selected, visible: !selected.visible })}><EyeOff className="h-4 w-4" /></TbBtn>
+                  <TbBtn title="تكرار" onClick={() => duplicate(selected.id)}><Copy className="h-4 w-4" /></TbBtn>
+                  <TbBtn title="حذف" onClick={() => remove(selected.id)}><Trash2 className="h-4 w-4" /></TbBtn>
+                </div>
+              </div>
+            )}
           </main>
 
           {/* ---------- inspector ---------- */}
@@ -324,7 +446,9 @@ export default function StudioApp({ onExit }: { onExit: () => void }) {
         <div className="flex-1" />
       )}
 
-      {gallery && <TemplateGallery canClose={!!site} onClose={() => setGallery(false)} onCreate={createFrom} />}
+      {gallery && <TemplateGallery canClose={!!site} onClose={() => setGallery(false)} onCreate={createFrom} doctors={doctors} onFromDoctor={createFromDoctor} />}
+      {publishOpen && site && <PublishDialog site={site} onClose={() => setPublishOpen(false)} onPublished={p => { update({ ...site, publish: p }, false); if (p) flash('اتنشر ✓'); }} />}
+      <input ref={imgInput} type="file" accept="image/*" hidden onChange={e => { onPickImage(e.target.files?.[0]); e.target.value = ''; }} />
       {toast && <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 rounded-xl bg-slate-900 px-4 py-2.5 text-[13px] font-medium text-white shadow-xl">{toast}</div>}
     </div>
   );
@@ -372,6 +496,10 @@ function SiteSwitcher({ site, sites, onOpen, onNew, onRename, onDuplicate, onDel
   );
 }
 
+function TbBtn({ title, onClick, children }: { title: string; onClick: () => void; children: React.ReactNode }) {
+  return <button type="button" title={title} aria-label={title} onClick={onClick} className="grid h-8 w-8 cursor-pointer place-items-center rounded-lg text-sky-100 hover:bg-white/15">{children}</button>;
+}
+
 function ExportMenu({ onHtml, onJson, onImport }: { onHtml: () => void; onJson: () => void; onImport: () => void }) {
   const [open, setOpen] = useState(false);
   return (
@@ -396,9 +524,12 @@ function MenuItem({ icon: I, title, text, onClick }: { icon: React.ComponentType
   );
 }
 
-function TemplateGallery({ onCreate, onClose, canClose }: { onCreate: (tpl: string, name: string) => void; onClose: () => void; canClose: boolean }) {
+function TemplateGallery({ onCreate, onClose, canClose, doctors, onFromDoctor }: { onCreate: (tpl: string, name: string) => void; onClose: () => void; canClose: boolean; doctors: DoctorProfile[]; onFromDoctor: (d: DoctorProfile) => void }) {
   const [tpl, setTpl] = useState(TEMPLATES[0].id);
   const [name, setName] = useState('');
+  const [tab, setTab] = useState<'tpl' | 'doc'>('tpl');
+  const [q, setQ] = useState('');
+  const docs = doctors.filter(d => !q || `${d.name} ${d.specialty}`.includes(q));
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-slate-950/70 p-4 backdrop-blur-sm" dir="rtl">
       <div className="w-full max-w-3xl rounded-3xl bg-white p-6 shadow-2xl">
@@ -406,7 +537,26 @@ function TemplateGallery({ onCreate, onClose, canClose }: { onCreate: (tpl: stri
           <h2 className="text-lg font-bold text-slate-900">موقع جديد</h2>
           {canClose && <button onClick={onClose} className="cursor-pointer rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"><X className="h-5 w-5" /></button>}
         </div>
-        <p className="mb-5 text-[13px] text-slate-500">اختار قالب تبدأ منه. كل قسم بعد كده تقدر تغيّر كلامه وصوره وألوانه وحركته براحتك.</p>
+        <p className="mb-4 text-[13px] text-slate-500">ابدأ من قالب، أو افتح أي موقع دكتور موجود على MedFrame وعدّله من القدام.</p>
+        <div className="mb-4 flex gap-1 rounded-xl bg-slate-100 p-1">
+          <button onClick={() => setTab('tpl')} className={`flex-1 cursor-pointer rounded-lg py-2 text-[12.5px] font-bold ${tab === 'tpl' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>قالب جاهز</button>
+          <button onClick={() => setTab('doc')} className={`flex-1 cursor-pointer rounded-lg py-2 text-[12.5px] font-bold ${tab === 'doc' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500'}`}>من موقع دكتور موجود ({doctors.length})</button>
+        </div>
+        {tab === 'doc' ? (
+          <div>
+            <input value={q} onChange={e => setQ(e.target.value)} placeholder="ابحث باسم الدكتور أو التخصص" className="mb-3 w-full rounded-xl border border-slate-200 px-4 py-2.5 text-[13px] outline-none focus:border-sky-400" />
+            <div className="grid max-h-[50vh] gap-2 overflow-y-auto sm:grid-cols-2">
+              {docs.map(d => (
+                <button key={d.id} onClick={() => onFromDoctor(d)} className="flex cursor-pointer items-center gap-3 rounded-2xl border border-slate-200 p-3 text-right transition hover:border-sky-400 hover:bg-sky-50">
+                  {d.avatarUrl ? <img src={d.avatarUrl} alt="" className="h-11 w-11 shrink-0 rounded-full object-cover" referrerPolicy="no-referrer" /> : <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-sky-50 text-sky-700"><Stethoscope className="h-5 w-5" /></span>}
+                  <span className="min-w-0"><span className="block truncate text-[13px] font-bold text-slate-900">{d.name}</span><span className="block truncate text-[11.5px] text-slate-500">{d.specialty}{d.clinic?.city ? ` · ${d.clinic.city}` : ''}</span></span>
+                </button>
+              ))}
+              {docs.length === 0 && <p className="col-span-full py-8 text-center text-[13px] text-slate-400">مفيش مواقع دكاترة {q ? 'بالاسم ده' : 'لسه'}.</p>}
+            </div>
+            <p className="mt-3 text-[11.5px] leading-5 text-slate-400">بياخد كل بيانات الدكتور (الصورة، النبذة، الخدمات، المؤهلات، الصور، العيادة، الأسئلة) ويحطها في تصميم الاستوديو. الموقع القديم مبيتغيرش.</p>
+          </div>
+        ) : (<>
         <div className="grid gap-3 sm:grid-cols-2">
           {TEMPLATES.map(t => (
             <button key={t.id} onClick={() => setTpl(t.id)} className={`cursor-pointer overflow-hidden rounded-2xl border-2 text-right transition ${tpl === t.id ? 'border-sky-500 shadow-lg shadow-sky-500/10' : 'border-slate-200 hover:border-slate-300'}`}>
@@ -422,6 +572,7 @@ function TemplateGallery({ onCreate, onClose, canClose }: { onCreate: (tpl: stri
           <input value={name} onChange={e => setName(e.target.value)} placeholder="اسم المكان (مثال: مركز الأمل الطبي)" className="min-w-0 flex-1 rounded-xl border border-slate-200 px-4 py-3 text-[14px] outline-none focus:border-sky-400" />
           <button onClick={() => onCreate(tpl, name.trim())} className="cursor-pointer rounded-xl bg-[#0B2D5C] px-6 py-3 text-[14px] font-bold text-white hover:bg-[#0d3770]">ابدأ التصميم</button>
         </div>
+        </>)}
       </div>
     </div>
   );

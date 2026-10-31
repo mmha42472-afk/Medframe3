@@ -114,6 +114,8 @@ export interface Site {
   theme: SiteTheme;
   settings: SiteSettings;
   sections: Section[];
+  publish?: { slug: string; url: string; at: string };
+  sourceDoctorId?: string;
   createdAt: string;
   updatedAt: string;
 }
