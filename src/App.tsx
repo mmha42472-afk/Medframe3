@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { DoctorProfile, DoctorStatus } from './types/doctor';
 import { 
@@ -25,6 +25,7 @@ import { DoctorBuilder } from './components/Builder/DoctorBuilder';
 import { DoctorWebsiteView } from './components/Preview/DoctorWebsiteView';
 import { DoctorDirectoryView } from './components/Public/DoctorDirectoryView';
 import { NotFoundView } from './components/Public/NotFoundView';
+const StudioApp = lazy(() => import('./studio/editor/StudioApp'));
 import { AdminLoginModal } from './components/Auth/AdminLoginModal';
 import { NewDoctorModal } from './components/Builder/NewDoctorModal';
 import { FirebaseConfigModal } from './components/Common/FirebaseConfigModal';
@@ -49,7 +50,7 @@ function MainApp() {
 
   // Navigation State
   const [currentRoute, setCurrentRoute] = useState<{
-    page: 'dashboard' | 'builder' | 'directory' | 'doctor' | 'notfound';
+    page: 'dashboard' | 'builder' | 'directory' | 'doctor' | 'notfound' | 'studio';
     slug?: string;
   }>({ page: 'dashboard' });
 
@@ -103,6 +104,10 @@ function MainApp() {
 
     if (hash === '#/builder') {
       return { page: 'builder' as const };
+    }
+
+    if (hash === '#/studio') {
+      return { page: 'studio' as const };
     }
 
     if (hash === '#/dashboard' || hash === '#/admin' || hash === '#admin') {
@@ -204,7 +209,7 @@ function MainApp() {
   }, [parseCurrentUrl, doctors, activeDoctor]);
 
   // Navigation handlers
-  const navigateTo = (page: 'dashboard' | 'builder' | 'directory') => {
+  const navigateTo = (page: 'dashboard' | 'builder' | 'directory' | 'studio') => {
     window.location.hash = `#/${page === 'dashboard' ? '' : page}`;
     setCurrentRoute({ page });
   };
@@ -436,6 +441,28 @@ function MainApp() {
     );
   }
 
+  // 1b. Site Studio (full-screen editor for polyclinic / lab / doctor sites)
+  if (currentRoute.page === 'studio') {
+    if (!isAdmin) {
+      return (
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4" dir="rtl">
+          <div className="bg-white rounded-3xl p-8 text-center space-y-4 max-w-sm w-full">
+            <h3 className="font-bold text-slate-900">استوديو المواقع للمشرف فقط</h3>
+            <p className="text-xs text-slate-500">سجّل دخول المشرف عشان تفتح الاستوديو.</p>
+            <button onClick={() => setIsLoginModalOpen(true)} className="w-full py-2.5 bg-teal-800 text-white rounded-xl text-xs font-bold cursor-pointer">تسجيل الدخول</button>
+            <button onClick={() => navigateTo('dashboard')} className="w-full py-2.5 bg-slate-100 text-slate-700 rounded-xl text-xs font-semibold cursor-pointer">رجوع</button>
+          </div>
+          <AdminLoginModal isOpen={isLoginModalOpen} onClose={() => setIsLoginModalOpen(false)} />
+        </div>
+      );
+    }
+    return (
+      <Suspense fallback={<div className="grid h-screen place-items-center bg-slate-950 text-sm text-slate-400">جاري فتح الاستوديو…</div>}>
+        <StudioApp onExit={() => navigateTo('dashboard')} />
+      </Suspense>
+    );
+  }
+
   // 2. 404 / Private Draft View
   if (currentRoute.page === 'notfound') {
     return (
@@ -498,6 +525,7 @@ function MainApp() {
                 isSyncing={isSyncing}
                 onOpenFirebaseModal={() => setIsFirebaseModalOpen(true)}
                 onOpenGitHubPagesModal={() => setIsGitHubPagesModalOpen(true)}
+                onOpenStudio={() => navigateTo('studio')}
                 onOpenEasyWeb={() => {
                   if (!isAdmin) {
                     setIsLoginModalOpen(true);

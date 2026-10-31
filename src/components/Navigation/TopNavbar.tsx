@@ -15,8 +15,8 @@ import {
 } from 'lucide-react';
 
 interface TopNavbarProps {
-  currentView: 'dashboard' | 'builder' | 'directory' | 'preview';
-  onNavigate: (view: 'dashboard' | 'builder' | 'directory') => void;
+  currentView: 'dashboard' | 'builder' | 'directory' | 'preview' | 'studio';
+  onNavigate: (view: 'dashboard' | 'builder' | 'directory' | 'studio') => void;
   onOpenNewDoctorModal?: () => void;
   onOpenLoginModal: () => void;
   onOpenFirebaseModal: () => void;
@@ -115,6 +115,14 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
                 محرر المواقع
               </button>
             )}
+            {isAdmin && (
+              <button
+                onClick={() => onNavigate('studio')}
+                className="whitespace-nowrap shrink-0 py-1 px-3 rounded-full bg-[#0B2D5C] text-white text-xs font-bold hover:bg-[#0d3770] transition-colors cursor-pointer"
+              >
+                استوديو المواقع ✦
+              </button>
+            )}
 
             {/* GitHub Pages Deploy Help */}
             <button
@@ -211,6 +219,17 @@ export const TopNavbar: React.FC<TopNavbarProps> = ({
               className="w-full text-right px-3 py-2 text-sm font-medium text-slate-800 hover:bg-slate-50 rounded-lg"
             >
               محرر المواقع الطبية
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              onClick={() => {
+                onNavigate('studio');
+                setMobileMenuOpen(false);
+              }}
+              className="w-full text-right px-3 py-2 text-sm font-bold text-[#0B2D5C] hover:bg-slate-50 rounded-lg"
+            >
+              استوديو المواقع (مجمعات، معامل، عيادات)
             </button>
           )}
           <button

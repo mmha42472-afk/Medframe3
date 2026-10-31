@@ -44,6 +44,7 @@ interface AdminDashboardProps {
   onOpenFirebaseModal?: () => void;
   onOpenGitHubPagesModal?: () => void;
   onOpenEasyWeb?: () => void;
+  onOpenStudio?: () => void;
 }
 
 export const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -62,7 +63,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   isSyncing,
   onOpenFirebaseModal,
   onOpenGitHubPagesModal,
-  onOpenEasyWeb
+  onOpenEasyWeb,
+  onOpenStudio
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'published' | 'draft'>('all');
@@ -200,6 +202,17 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <Upload className="w-3.5 h-3.5 text-slate-500" />
               <span>استيراد JSON</span>
             </button>
+
+            {onOpenStudio && (
+              <button
+                onClick={onOpenStudio}
+                className="px-4 py-2 bg-[#0B2D5C] hover:bg-[#0d3770] text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center gap-1.5 cursor-pointer"
+                title="ابني موقع مجمع عيادات أو معمل أو دكتور وعدّل كل قسم براحتك"
+              >
+                <Sparkles className="w-4 h-4 text-sky-300" />
+                <span>استوديو المواقع</span>
+              </button>
+            )}
 
             {onOpenEasyWeb && (
               <button
