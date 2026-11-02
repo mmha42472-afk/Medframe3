@@ -1,6 +1,7 @@
 import type { Site, SiteKind } from './types';
 import { defaultSettings, defaultTheme, makeSection } from './schema';
 import { slugify, uid } from './utils';
+import { iclinicTemplate } from './clients/iclinic';
 
 export interface TemplateDef { id: string; kind: SiteKind; name: string; description: string; swatch: [string, string, string]; build: (name?: string) => Site }
 
@@ -157,4 +158,5 @@ export const TEMPLATES: TemplateDef[] = [
   { id: 'lab', kind: 'lab', name: 'معمل تحاليل', description: 'أبيض نظيف، مجسم خلايا 3D، دليل تحاليل بالبحث، باقات وسحب منزلي', swatch: ['#FFFFFF', '#1F2A7A', '#D7263D'], build: lab },
   { id: 'doctor', kind: 'doctor', name: 'عيادة دكتور', description: 'شخصي وفخم: صورة الدكتور، نبذة، أرقام، خدمات وحجز', swatch: ['#F7F5F0', '#1E4E79', '#C9A227'], build: doctor },
   { id: 'blank', kind: 'blank', name: 'صفحة فاضية', description: 'ابدأ من الصفر وضيف الأقسام اللي عايزها', swatch: ['#FBFAF7', '#0F7B6C', '#E8A33D'], build: blank },
+  iclinicTemplate,
 ];
