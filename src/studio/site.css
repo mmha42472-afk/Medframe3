@@ -152,7 +152,7 @@
 /* cut-out portrait (transparent PNG/WebP): sits in front of a coloured arch, rises in, then floats gently */
 .st-photo.is-cutout { aspect-ratio: 4 / 4.7; display: flex; align-items: flex-end; justify-content: center; isolation: isolate;
   background: radial-gradient(70% 55% at 50% 30%, color-mix(in srgb, var(--a) 40%, #fff), transparent 72%),
-    linear-gradient(170deg, color-mix(in srgb, var(--a) 86%, #fff) 0%, var(--a) 48%, color-mix(in srgb, var(--p) 55%, var(--a)) 100%); }
+    linear-gradient(170deg, color-mix(in srgb, var(--a) 86%, #fff) 0%, var(--a) 48%, color-mix(in srgb, var(--a) 72%, #2a0f08) 100%); }
 .st-photo.is-cutout::before { content: ""; position: absolute; inset: -34% -14% auto; height: 92%; border-radius: 50%; z-index: 0; pointer-events: none;
   border: 1.5px solid rgba(255,255,255,.38); box-shadow: 0 0 0 34px rgba(255,255,255,.07), 0 0 0 72px rgba(255,255,255,.05); }
 .st-photo.is-cutout img { position: relative; z-index: 1; width: 100%; height: auto; max-height: 104%; object-fit: contain; object-position: 50% 100%; filter: drop-shadow(0 22px 26px rgba(0,0,0,.3)); }
