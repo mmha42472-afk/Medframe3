@@ -216,7 +216,7 @@ function Hero({ sec, ctx }: { sec: Section; ctx: Ctx }) {
               </div>
             )}
             {visual === 'image' && (
-              <div className={`st-photo st-shape-${c.imageShape || 'arch'}`}>
+              <div className={`st-photo st-shape-${c.imageShape || 'arch'}${c.imageFit === 'cutout' ? ' is-cutout' : ''}`}>
                 {c.image ? <img src={c.image} alt={plain(c.title)} {...imgAttr(ctx, sec, 'image')} /> : <div className="st-empty-media" style={{ height: '100%', border: 0 }} {...imgAttr(ctx, sec, 'image')}>اضغط هنا وارفع صورة</div>}
               </div>
             )}

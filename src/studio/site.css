@@ -149,6 +149,17 @@
 .st-shape-rounded { border-radius: calc(var(--r) * 1.6); }
 .st-shape-circle { border-radius: 50%; aspect-ratio: 1; }
 .st-shape-blob { border-radius: 62% 38% 46% 54% / 55% 44% 56% 45%; }
+/* cut-out portrait (transparent PNG/WebP): sits in front of a coloured arch, rises in, then floats gently */
+.st-photo.is-cutout { aspect-ratio: 4 / 4.7; display: flex; align-items: flex-end; justify-content: center; isolation: isolate;
+  background: radial-gradient(70% 55% at 50% 30%, color-mix(in srgb, var(--a) 40%, #fff), transparent 72%),
+    linear-gradient(170deg, color-mix(in srgb, var(--a) 86%, #fff) 0%, var(--a) 48%, color-mix(in srgb, var(--p) 55%, var(--a)) 100%); }
+.st-photo.is-cutout::before { content: ""; position: absolute; inset: -34% -14% auto; height: 92%; border-radius: 50%; z-index: 0; pointer-events: none;
+  border: 1.5px solid rgba(255,255,255,.38); box-shadow: 0 0 0 34px rgba(255,255,255,.07), 0 0 0 72px rgba(255,255,255,.05); }
+.st-photo.is-cutout img { position: relative; z-index: 1; width: 100%; height: auto; max-height: 104%; object-fit: contain; object-position: 50% 100%; filter: drop-shadow(0 22px 26px rgba(0,0,0,.3)); }
+.st-animate .st-photo.is-cutout::before { animation: st-breathe 6s ease-in-out infinite; }
+.st-animate .st-photo.is-cutout img { animation: st-rise 1.3s cubic-bezier(.22,1,.36,1) both, st-bob 7s ease-in-out 1.4s infinite; }
+@keyframes st-rise { from { opacity: 0; transform: translateY(46px) scale(.95); } to { opacity: 1; transform: none; } }
+@keyframes st-bob { 50% { transform: translateY(-9px); } }
 .st-photo-frame { position: absolute; inset: 0; z-index: -1; transform: translate(-18px, 18px); border: 1.5px solid var(--a); border-radius: 260px 260px var(--r) var(--r); opacity: .7; pointer-events: none; }
 .st-hero-visual:has(.st-shape-rounded) .st-photo-frame { border-radius: calc(var(--r) * 1.6); }
 .st-3d-hero { position: relative; height: 100%; min-height: 440px; }
